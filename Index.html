@@ -1,484 +1,16 @@
+
+
+
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Montana Importados - Gestión de Productos</title>
+    <title>Montaña Importados - Tecnología de Importación</title>
+    <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: #f5f7fb;
-            color: #1e293b;
-        }
-
-        :root {
-            --primary: #2563eb;
-            --primary-dark: #1d4ed8;
-            --danger: #dc2626;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --gray-100: #f3f4f6;
-            --gray-200: #e5e7eb;
-            --gray-600: #6b7280;
-            --text-muted: #6c757d;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        /* Login */
-        .login-container {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-
-        .login-card {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            width: 100%;
-            max-width: 400px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-        }
-
-        .login-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .brand-logo img {
-            width: 100px;
-            height: 120px;
-            border-radius: 50%;
-            object-fit: cover;
-            margin-bottom: 15px;
-        }
-
-        .login-header h1 {
-            font-size: 24px;
-            color: #333;
-        }
-
-        .input-group {
-            display: flex;
-            align-items: center;
-            border: 1px solid var(--gray-200);
-            border-radius: 10px;
-            margin-bottom: 20px;
-            padding: 0 15px;
-            background: white;
-        }
-
-        .input-group i {
-            color: var(--gray-600);
-            font-size: 18px;
-        }
-
-        .input-group input {
-            border: none;
-            padding: 12px 10px;
-            width: 100%;
-            font-size: 14px;
-            outline: none;
-        }
-
-        .btn-login {
-            width: 100%;
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 12px;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-
-        .btn-login:hover {
-            background: var(--primary-dark);
-        }
-
-        .login-help {
-            margin-top: 20px;
-            text-align: center;
-            color: var(--text-muted);
-        }
-
-        /* App Container */
-        .app-container {
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-        }
-
-        /* Top Navigation */
-        .top-nav {
-            background: white;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            padding: 0 20px;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 100;
-        }
-
-        .nav-left {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-weight: 700;
-            font-size: 18px;
-            color: var(--primary);
-        }
-
-        .nav-right {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .user-info i {
-            font-size: 32px;
-            color: var(--primary);
-        }
-
-        .user-details {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .user-details span {
-            font-weight: 600;
-            font-size: 14px;
-        }
-
-        .user-details small {
-            font-size: 11px;
-            color: var(--text-muted);
-        }
-
-        .btn-icon {
-            background: none;
-            border: none;
-            font-size: 20px;
-            cursor: pointer;
-            color: var(--gray-600);
-            padding: 8px;
-            border-radius: 8px;
-            transition: background 0.3s;
-        }
-
-        .btn-icon:hover {
-            background: var(--gray-100);
-        }
-
-        /* Sidebar */
-        .sidebar {
-            width: 260px;
-            background: white;
-            position: fixed;
-            left: 0;
-            top: 60px;
-            bottom: 0;
-            box-shadow: 1px 0 3px rgba(0,0,0,0.1);
-            overflow-y: auto;
-            z-index: 99;
-        }
-
-        .sidebar-menu {
-            padding: 20px 0;
-        }
-
-        .menu-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 20px;
-            margin: 4px 12px;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.3s;
-            color: var(--gray-600);
-        }
-
-        .menu-item:hover {
-            background: var(--gray-100);
-            color: var(--primary);
-        }
-
-        .menu-item.active {
-            background: var(--primary);
-            color: white;
-        }
-
-        .menu-item i {
-            width: 20px;
-            font-size: 18px;
-        }
-
-        /* Main Content */
-        .main-content {
-            margin-left: 260px;
-            margin-top: 60px;
-            padding: 20px;
-            min-height: calc(100vh - 60px);
-        }
-
-        /* Section Header */
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .section-header h2 {
-            font-size: 24px;
-            font-weight: 600;
-        }
-
-        /* Cards */
-        .card {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-
-        .card-header {
-            padding: 20px 20px 0 20px;
-            font-size: 18px;
-            font-weight: 600;
-        }
-
-        .card-body {
-            padding: 20px;
-        }
-
-        /* Buttons */
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: background 0.3s;
-        }
-
-        .btn-primary:hover {
-            background: var(--primary-dark);
-        }
-
-        .btn-secondary {
-            background: var(--gray-100);
-            color: var(--gray-600);
-            border: 1px solid var(--gray-200);
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-
-        /* Search Box */
-        .search-box {
-            position: relative;
-            margin-bottom: 20px;
-        }
-
-        .search-box i {
-            position: absolute;
-            left: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-muted);
-        }
-
-        .search-box input {
-            width: 100%;
-            padding: 10px 10px 10px 40px;
-            border: 1px solid var(--gray-200);
-            border-radius: 8px;
-            font-size: 14px;
-        }
-
-        /* Table */
-        .table-responsive {
-            overflow-x: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid var(--gray-200);
-        }
-
-        th {
-            background: var(--gray-100);
-            font-weight: 600;
-        }
-
-        /* Form */
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-            font-size: 14px;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid var(--gray-200);
-            border-radius: 8px;
-            font-size: 14px;
-        }
-
-        /* Modal */
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-
-        .modal-content {
-            background: white;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 600px;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px;
-            border-bottom: 1px solid var(--gray-200);
-        }
-
-        .modal-header h3 {
-            font-size: 20px;
-        }
-
-        .close-modal {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: var(--gray-600);
-        }
-
-        .modal-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            padding: 20px;
-            border-top: 1px solid var(--gray-200);
-        }
-
-        /* Badges */
-        .badge {
-            padding: 4px 8px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        .badge-success {
-            background: #d1fae5;
-            color: #065f46;
-        }
-
-        .badge-warning {
-            background: #fed7aa;
-            color: #92400e;
-        }
-
-        .badge-danger {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 8px;
-        }
-
-        .btn-edit, .btn-delete {
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 4px 8px;
-            border-radius: 4px;
-        }
-
-        .btn-edit {
-            color: var(--primary);
-        }
-
-        .btn-delete {
-            color: var(--danger);
-        }
-    </style>
 </head>
 <body>
     <!-- Login Screen -->
@@ -486,9 +18,10 @@
         <div class="login-card">
             <div class="login-header">
                 <div class="brand-logo">
-                    <img src="LOGO.jpeg" alt="Montana Importados" style="width: 100px; height: 120px; border-radius: 50%; object-fit: cover;">
+                    <img src="LOGO.jpg" alt="Montaña Importados" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover;">
                 </div>
-                <h1>Montana Importados</h1>
+                <h1>Montaña Importados</h1>
+                <p>Sistema de Gestión de Ventas - Tecnología de Importación</p>
             </div>
             
             <form id="loginForm">
@@ -519,9 +52,12 @@
         <!-- Top Navigation -->
         <nav class="top-nav">
             <div class="nav-left">
+                <button class="menu-toggle" id="menuToggle">
+                    <i class="fas fa-bars"></i>
+                </button>
                 <div class="brand">
-                    <img src="LOGO.jpeg"" alt="Montaña Importados" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
-                    <span>Montana Importados</span>
+                    <img src="LOGO.jpg" alt="Montaña Importados" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                    <span>Montaña Importados</span>
                 </div>
             </div>
             
@@ -539,20 +75,202 @@
             </div>
         </nav>
 
-        <!-- Sidebar - SOLO PRODUCTOS -->
+        <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
             <nav class="sidebar-menu">
-                <div class="menu-item active" data-section="products">
+                <div class="menu-item admin-only hidden active" data-section="dashboard">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </div>
+                <div class="menu-item" data-section="pos">
+                    <i class="fas fa-cash-register"></i>
+                    <span>Punto de Venta</span>
+                </div>
+                <div class="menu-item" data-section="products">
                     <i class="fas fa-microchip"></i>
                     <span>Productos</span>
+                </div>
+                <div class="menu-item" data-section="customers">
+                    <i class="fas fa-users"></i>
+                    <span>Clientes</span>
+                </div>
+                <div class="menu-item" data-section="debts">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    <span>Cuentas por Cobrar</span>
+                </div>
+                <div class="menu-item" data-section="sales">
+                    <i class="fas fa-receipt"></i>
+                    <span>Ventas</span>
+                </div>
+                
+                <div class="menu-divider"></div>
+                
+                <div class="menu-item" data-section="profile">
+                    <i class="fas fa-user-cog"></i>
+                    <span>Mi Perfil</span>
+                </div>
+                
+                <div class="menu-item admin-only hidden" data-section="employees">
+                    <i class="fas fa-user-tie"></i>
+                    <span>Empleados</span>
+                </div>
+                <div class="menu-item admin-only hidden" data-section="reports">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Reportes</span>
+                </div>
+                <div class="menu-item admin-only hidden" data-section="config">
+                    <i class="fas fa-cog"></i>
+                    <span>Configuración</span>
                 </div>
             </nav>
         </aside>
 
         <!-- Main Content -->
         <main class="main-content">
-            <!-- Products Section (Única visible) -->
-            <section id="productsSection" class="content-section">
+            <!-- Dashboard Section -->
+            <section id="dashboardSection" class="content-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-chart-line"></i> Dashboard</h2>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #e8f5e9;">
+                            <i class="fas fa-dollar-sign" style="color: #2e7d32;"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="todaySales">$0.00</h3>
+                            <p>Ventas Hoy</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #e3f2fd;">
+                            <i class="fas fa-microchip" style="color: #1976d2;"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="totalProducts">0</h3>
+                            <p>Productos</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #fff3e0;">
+                            <i class="fas fa-exclamation-triangle" style="color: #f57c00;"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="lowStockCount">0</h3>
+                            <p>Stock Bajo</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #fce4ec;">
+                            <i class="fas fa-users" style="color: #c2185b;"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="totalCustomers">0</h3>
+                            <p>Clientes</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-receipt"></i> Últimas Ventas</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table id="recentSalesTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Código</th>
+                                            <th>Cliente</th>
+                                            <th>Total</th>
+                                            <th>Fecha</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-boxes"></i> Productos con Stock Bajo</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table id="lowStockTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th>Stock</th>
+                                            <th>Mínimo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- POS Section -->
+            <section id="posSection" class="content-section hidden">
+                <div class="section-header">
+                    <h2><i class="fas fa-cash-register"></i> Punto de Venta</h2>
+                </div>
+
+                <div class="pos-container">
+                    <div class="pos-products">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="productSearch" placeholder="Buscar producto por nombre o código...">
+                        </div>
+                        
+                        <div id="productGrid" class="product-grid"></div>
+                    </div>
+
+                    <div class="pos-cart">
+                        <div class="cart-header">
+                            <h3><i class="fas fa-shopping-cart"></i> Carrito</h3>
+                            <button id="clearCartBtn" class="btn-text">
+                                <i class="fas fa-trash"></i> Limpiar
+                            </button>
+                        </div>
+
+                        <div id="cartItems" class="cart-items"></div>
+
+                        <div class="cart-summary">
+                            <div class="summary-row">
+                                <span>Subtotal:</span>
+                                <strong id="cartSubtotal">$0.00</strong>
+                            </div>
+                            <div class="summary-row">
+                                <label>
+                                    <span>Descuento:</span>
+                                    <input type="number" id="discountInput" value="0" min="0" step="0.01">
+                                </label>
+                            </div>
+                            <div class="summary-row total">
+                                <span>Total:</span>
+                                <strong id="cartTotal">$0.00</strong>
+                            </div>
+                        </div>
+
+                        <button id="checkoutBtn" class="btn-primary btn-block" disabled>
+                            <i class="fas fa-check"></i> Finalizar Venta
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Products Section -->
+            <section id="productsSection" class="content-section hidden">
                 <div class="section-header">
                     <h2><i class="fas fa-microchip"></i> Productos Tecnológicos</h2>
                     <button id="addProductBtn" class="btn-primary">
@@ -564,7 +282,7 @@
                     <div class="card-body">
                         <div class="search-box">
                             <i class="fas fa-search"></i>
-                            <input type="text" id="searchProducts" placeholder="Buscar productos por nombre o código...">
+                            <input type="text" id="searchProducts" placeholder="Buscar productos...">
                         </div>
                         
                         <div class="table-responsive">
@@ -580,9 +298,299 @@
                                         <th>Acciones</th>
                                     </tr>
                                 </thead>
-                                <tbody id="productsTableBody">
-                                    <!-- Los productos se cargarán dinámicamente -->
-                                </tbody>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Customers Section -->
+            <section id="customersSection" class="content-section hidden">
+                <div class="section-header">
+                    <h2><i class="fas fa-users"></i> Clientes</h2>
+                    <button id="addCustomerBtn" class="btn-primary">
+                        <i class="fas fa-plus"></i> Agregar Cliente
+                    </button>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="searchCustomers" placeholder="Buscar clientes...">
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table id="customersTable">
+                                <thead>
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Teléfono</th>
+                                        <th>Deuda</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Debts Section -->
+            <section id="debtsSection" class="content-section hidden">
+                <div class="section-header">
+                    <h2><i class="fas fa-file-invoice-dollar"></i> Cuentas por Cobrar</h2>
+                </div>
+
+                <div class="stats-grid" style="margin-bottom: 30px;">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #ffebee;">
+                            <i class="fas fa-exclamation-circle" style="color: #c62828;"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="totalDebt">$0.00</h3>
+                            <p>Deuda Total</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #fff3e0;">
+                            <i class="fas fa-users" style="color: #e65100;"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="debtorsCount">0</h3>
+                            <p>Clientes con Deuda</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="searchDebts" placeholder="Buscar deudores...">
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table id="debtsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Cliente</th>
+                                        <th>Teléfono</th>
+                                        <th>Deuda</th>
+                                        <th>Última Venta</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Sales Section -->
+            <section id="salesSection" class="content-section hidden">
+                <div class="section-header">
+                    <h2><i class="fas fa-receipt"></i> Historial de Ventas</h2>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="searchSales" placeholder="Buscar ventas...">
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table id="salesTable">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Cliente</th>
+                                        <th>Vendedor</th>
+                                        <th>Total</th>
+                                        <th>Método Pago</th>
+                                        <th>Fecha</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Reports Section -->
+            <section id="reportsSection" class="content-section hidden admin-only">
+                <div class="section-header">
+                    <h2><i class="fas fa-chart-bar"></i> Reportes</h2>
+                </div>
+
+                <div class="reports-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Ventas por Día</h3>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="salesChart" height="200"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Productos Más Vendidos</h3>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="topProductsChart" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Employees Section -->
+            <section id="employeesSection" class="content-section hidden admin-only">
+                <div class="section-header">
+                    <h2><i class="fas fa-user-tie"></i> Gestión de Empleados</h2>
+                    <button id="addEmployeeBtn" class="btn-primary">
+                        <i class="fas fa-plus"></i> Agregar Empleado
+                    </button>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="searchEmployees" placeholder="Buscar empleados...">
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table id="employeesTable">
+                                <thead>
+                                    <tr>
+                                        <th>Usuario</th>
+                                        <th>Nombre</th>
+                                        <th>Email</th>
+                                        <th>Rol</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Profile Section -->
+            <section id="profileSection" class="content-section hidden">
+                <div class="section-header">
+                    <h2><i class="fas fa-user-cog"></i> Mi Perfil</h2>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-user"></i> Información Personal</h3>
+                    </div>
+                    <div class="card-body">
+                        <form id="profileForm">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Usuario</label>
+                                    <input type="text" id="profileUsername" class="form-control" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label>Nombre Completo</label>
+                                    <input type="text" id="profileName" class="form-control" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Email</label>
+                                    <input type="email" id="profileEmail" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label>Rol</label>
+                                    <input type="text" id="profileRole" class="form-control" readonly>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn-primary">Actualizar Información</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-lock"></i> Cambiar Contraseña</h3>
+                    </div>
+                    <div class="card-body">
+                        <form id="changePasswordForm">
+                            <div class="form-group">
+                                <label>Contraseña Actual</label>
+                                <input type="password" id="currentPassword" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Nueva Contraseña</label>
+                                <input type="password" id="newPassword" class="form-control" required minlength="6">
+                            </div>
+                            <div class="form-group">
+                                <label>Confirmar Nueva Contraseña</label>
+                                <input type="password" id="confirmPassword" class="form-control" required minlength="6">
+                            </div>
+                            <button type="submit" class="btn-primary">Cambiar Contraseña</button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Configuration Section -->
+            <section id="configSection" class="content-section hidden admin-only">
+                <div class="section-header">
+                    <h2><i class="fas fa-cog"></i> Configuración</h2>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-store"></i> Información de la Empresa</h3>
+                    </div>
+                    <div class="card-body">
+                        <form id="companyForm">
+                            <div class="form-group">
+                                <label>Nombre de la Empresa</label>
+                                <input type="text" id="companyName" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Teléfono</label>
+                                <input type="text" id="companyPhone" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Dirección</label>
+                                <textarea id="companyAddress" class="form-control" rows="3"></textarea>
+                            </div>
+                            <button type="submit" class="btn-primary">Guardar Cambios</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-users-cog"></i> Usuarios del Sistema</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table id="usersTable">
+                                <thead>
+                                    <tr>
+                                        <th>Usuario</th>
+                                        <th>Nombre</th>
+                                        <th>Rol</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
                             </table>
                         </div>
                     </div>
@@ -614,14 +622,6 @@
                         <label>Categoría *</label>
                         <select id="productCategory" class="form-control" required>
                             <option value="">Seleccionar...</option>
-                            <option value="Laptops">Laptops</option>
-                            <option value="Computadoras">Computadoras</option>
-                            <option value="Celulares">Celulares</option>
-                            <option value="Tablets">Tablets</option>
-                            <option value="Accesorios">Accesorios</option>
-                            <option value="Audio">Audio</option>
-                            <option value="Monitores">Monitores</option>
-                            <option value="Impresoras">Impresoras</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -649,166 +649,215 @@
         </div>
     </div>
 
-    <script>
-        // DATOS DE EJEMPLO
-        let products = [
-            { id: 1, code: 1001, name: "Laptop HP Pavilion", category: "Laptops", price: 899.99, cost: 750, stock: 15, description: "Intel i5, 8GB RAM, 512GB SSD" },
-            { id: 2, code: 1002, name: "iPhone 15 Pro", category: "Celulares", price: 1099.99, cost: 950, stock: 8, description: "256GB, Titanio" },
-            { id: 3, code: 1003, name: "Monitor Samsung 24\"", category: "Monitores", price: 199.99, cost: 150, stock: 25, description: "Full HD, 75Hz" },
-            { id: 4, code: 1004, name: "Mouse Logitech", category: "Accesorios", price: 29.99, cost: 20, stock: 50, description: "Inalámbrico" }
-        ];
+    <!-- Customer Modal -->
+    <div id="customerModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="customerModalTitle">Agregar Cliente</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <form id="customerForm">
+                <input type="hidden" id="customerId">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nombre *</label>
+                        <input type="text" id="customerName" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono</label>
+                        <input type="text" id="customerPhone" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="customerEmail" class="form-control">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Dirección</label>
+                    <textarea id="customerAddress" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary close-modal">Cancelar</button>
+                    <button type="submit" class="btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-        let nextId = 5;
-        let nextCode = 1005;
-
-        // Autenticación simple
-        let currentUser = null;
-
-        // Login
-        document.getElementById('loginForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-
-            if ((username === 'admin' && password === 'admin123') || 
-                (username === 'ventas' && password === 'ventas123')) {
-                currentUser = {
-                    username: username,
-                    role: username === 'admin' ? 'Administrador' : 'Empleado'
-                };
-                document.getElementById('currentUser').textContent = username;
-                document.getElementById('currentRole').textContent = currentUser.role;
-                document.getElementById('loginScreen').classList.add('hidden');
-                document.getElementById('app').classList.remove('hidden');
-                renderProducts();
-            } else {
-                alert('Credenciales incorrectas');
-            }
-        });
-
-        // Logout
-        document.getElementById('logoutBtn').addEventListener('click', () => {
-            currentUser = null;
-            document.getElementById('loginScreen').classList.remove('hidden');
-            document.getElementById('app').classList.add('hidden');
-            document.getElementById('username').value = '';
-            document.getElementById('password').value = '';
-        });
-
-        // Renderizar productos
-        function renderProducts() {
-            const searchTerm = document.getElementById('searchProducts').value.toLowerCase();
-            const filtered = products.filter(p => 
-                p.name.toLowerCase().includes(searchTerm) || 
-                p.code.toString().includes(searchTerm)
-            );
+    <!-- Checkout Modal -->
+    <div id="checkoutModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Finalizar Venta</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="payment-summary">
+                <div class="summary-row">
+                    <span>Subtotal:</span>
+                    <strong id="checkoutSubtotal">$0.00</strong>
+                </div>
+                <div class="summary-row">
+                    <span>Descuento:</span>
+                    <strong id="checkoutDiscount">$0.00</strong>
+                </div>
+                <div class="summary-row total">
+                    <span>Total:</span>
+                    <strong id="checkoutTotal">$0.00</strong>
+                </div>
+            </div>
             
-            const tbody = document.getElementById('productsTableBody');
-            tbody.innerHTML = '';
-            
-            filtered.forEach(product => {
-                const row = tbody.insertRow();
-                const stockStatus = product.stock <= 5 ? 'badge-danger' : (product.stock <= 10 ? 'badge-warning' : 'badge-success');
-                const stockText = product.stock <= 5 ? 'Stock Bajo' : (product.stock <= 10 ? 'Poco Stock' : 'Disponible');
+            <form id="checkoutForm">
+                <div class="form-group">
+                    <label>Cliente</label>
+                    <select id="saleCustomer" class="form-control">
+                        <option value="">VENTA GENERAL (Sin Cliente)</option>
+                    </select>
+                    <small style="color: var(--text-muted);">Opcional - Solo requerido para ventas a crédito o pago mixto</small>
+                </div>                
                 
-                row.innerHTML = `
-                    <td>${product.code}</td>
-                    <td>${product.name}</td>
-                    <td>${product.category}</td>
-                    <td>$${product.price.toFixed(2)}</td>
-                    <td>${product.stock}</td>
-                    <td><span class="badge ${stockStatus}">${stockText}</span></td>
-                    <td class="action-buttons">
-                        <button class="btn-edit" onclick="editProduct(${product.id})"><i class="fas fa-edit"></i></button>
-                        <button class="btn-delete" onclick="deleteProduct(${product.id})"><i class="fas fa-trash"></i></button>
-                    </td>
-                `;
-            });
-        }
+                <div class="form-group">
+                    <label>Tipo de Pago *</label>
+                    <select id="paymentType" class="form-control" required>
+                        <option value="efectivo">Efectivo - Pago Completo</option>
+                        <option value="tarjeta">Tarjeta - Pago Completo</option>
+                        <option value="transferencia">Transferencia - Pago Completo</option>
+                        <option value="mixto">Mixto - Pago Parcial</option>
+                        <option value="credito">A Crédito - Queda Debiendo Todo</option>
+                    </select>
+                </div>
 
-        // Búsqueda en tiempo real
-        document.getElementById('searchProducts').addEventListener('input', renderProducts);
+                <div id="partialPaymentSection" class="hidden">
+                    <div class="form-group">
+                        <label>Monto Pagado</label>
+                        <input type="number" id="partialAmount" class="form-control" min="0" step="0.01">
+                        <small style="color: var(--text-muted);">El resto quedará como deuda</small>
+                    </div>
+                    <div class="payment-info">
+                        <div class="summary-row">
+                            <span>Pagado:</span>
+                            <strong id="paidAmount">$0.00</strong>
+                        </div>
+                        <div class="summary-row" style="color: var(--danger);">
+                            <span>Queda Debiendo:</span>
+                            <strong id="remainingDebt">$0.00</strong>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Notas (opcional)</label>
+                    <textarea id="saleNotes" class="form-control" rows="2"></textarea>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary close-modal">Cancelar</button>
+                    <button type="submit" class="btn-success">Confirmar Venta</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-        // Modal de producto
-        const productModal = document.getElementById('productModal');
-        const productForm = document.getElementById('productForm');
-        let isEditing = false;
+    <!-- Employee Modal -->
+    <div id="employeeModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="employeeModalTitle">Agregar Empleado</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <form id="employeeForm">
+                <input type="hidden" id="employeeId">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nombre Completo *</label>
+                        <input type="text" id="employeeName" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Usuario *</label>
+                        <input type="text" id="employeeUsername" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="employeeEmail" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Rol *</label>
+                        <select id="employeeRole" class="form-control" required>
+                            <option value="empleado">Empleado</option>
+                            <option value="admin">Administrador</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="passwordGroup">
+                        <label>Contraseña *</label>
+                        <input type="password" id="employeePassword" class="form-control" minlength="6">
+                        <small style="color: var(--text-muted);">Mínimo 6 caracteres</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Estado</label>
+                        <select id="employeeActive" class="form-control">
+                            <option value="true">Activo</option>
+                            <option value="false">Inactivo</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary close-modal">Cancelar</button>
+                    <button type="submit" class="btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-        document.getElementById('addProductBtn').addEventListener('click', () => {
-            isEditing = false;
-            document.getElementById('productModalTitle').textContent = 'Agregar Producto';
-            productForm.reset();
-            document.getElementById('productId').value = '';
-            document.getElementById('productCode').value = nextCode;
-            productModal.classList.remove('hidden');
-        });
+    <!-- Payment Modal -->
+    <div id="paymentModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Registrar Pago</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <form id="paymentForm">
+                <input type="hidden" id="paymentCustomerId">
+                <div class="form-group">
+                    <label>Cliente</label>
+                    <input type="text" id="paymentCustomerName" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Deuda Actual</label>
+                    <input type="text" id="paymentCurrentDebt" class="form-control" readonly>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Monto a Pagar *</label>
+                        <input type="number" id="paymentAmount" class="form-control" min="0" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Método de Pago *</label>
+                        <select id="paymentMethodType" class="form-control" required>
+                            <option value="efectivo">Efectivo</option>
+                            <option value="tarjeta">Tarjeta</option>
+                            <option value="transferencia">Transferencia</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Referencia/Comprobante</label>
+                    <input type="text" id="paymentReference" class="form-control" placeholder="Número de transacción, comprobante, etc.">
+                </div>
+                <div class="form-group">
+                    <label>Notas</label>
+                    <textarea id="paymentNotes" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary close-modal">Cancelar</button>
+                    <button type="submit" class="btn-success">Registrar Pago</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-        window.editProduct = (id) => {
-            const product = products.find(p => p.id === id);
-            if (product) {
-                isEditing = true;
-                document.getElementById('productModalTitle').textContent = 'Editar Producto';
-                document.getElementById('productId').value = product.id;
-                document.getElementById('productCode').value = product.code;
-                document.getElementById('productName').value = product.name;
-                document.getElementById('productCategory').value = product.category;
-                document.getElementById('productPrice').value = product.price;
-                document.getElementById('productCost').value = product.cost || '';
-                document.getElementById('productStock').value = product.stock;
-                document.getElementById('productDescription').value = product.description || '';
-                productModal.classList.remove('hidden');
-            }
-        };
-
-        window.deleteProduct = (id) => {
-            if (confirm('¿Estás seguro de eliminar este producto?')) {
-                products = products.filter(p => p.id !== id);
-                renderProducts();
-            }
-        };
-
-        productForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            
-            const productData = {
-                code: parseInt(document.getElementById('productCode').value),
-                name: document.getElementById('productName').value,
-                category: document.getElementById('productCategory').value,
-                price: parseFloat(document.getElementById('productPrice').value),
-                cost: parseFloat(document.getElementById('productCost').value) || 0,
-                stock: parseInt(document.getElementById('productStock').value),
-                description: document.getElementById('productDescription').value
-            };
-            
-            if (isEditing) {
-                const id = parseInt(document.getElementById('productId').value);
-                const index = products.findIndex(p => p.id === id);
-                if (index !== -1) {
-                    products[index] = { ...products[index], ...productData };
-                }
-            } else {
-                productData.id = nextId++;
-                if (productData.code >= nextCode) nextCode = productData.code + 1;
-                products.push(productData);
-            }
-            
-            productModal.classList.add('hidden');
-            renderProducts();
-        });
-
-        // Cerrar modales
-        document.querySelectorAll('.close-modal').forEach(btn => {
-            btn.addEventListener('click', () => {
-                productModal.classList.add('hidden');
-            });
-        });
-        
-        // Clic fuera del modal
-        window.addEventListener('click', (e) => {
-            if (e.target === productModal) {
-                productModal.classList.add('hidden');
-            }
-        });
-    </script>
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>
