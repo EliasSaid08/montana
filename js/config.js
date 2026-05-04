@@ -1,21 +1,12 @@
-// Configuration file for Supabase connection
 const SUPABASE_URL = 'https://ylijiiexxgvlqkmcfill.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsaWppaWV4eGd2bHFrbWNmaWxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NTk4NDQsImV4cCI6MjA4NTAzNTg0NH0.9-L81hasC9-N1f7hXNJ15ZnVwbfRWDwfmx3qHGdEqM0';
 
-// EmailJS Configuration - REGISTRATE EN https://www.emailjs.com/
-// PASOS PARA CONFIGURAR EMAILJS:
-// 1. Crea una cuenta gratis en https://www.emailjs.com/
-// 2. Ve a "Email Services" y crea un nuevo servicio (Gmail, Outlook, etc.)
-// 3. Ve a "Email Templates" y crea una plantilla con las variables: {{to_email}}, {{to_name}}, {{reset_link}}
-// 4. Ve a "Integration" y copia tu Public Key (User ID)
-// 5. Reemplaza los valores de abajo con los tuyos
 const EMAILJS_CONFIG = {
     PUBLIC_KEY: 'ZI7DKnZbi_eAngHwA',  // Reemplazar con tu Public Key
     SERVICE_ID: 'service_jd6le2g',           // Reemplazar con tu Service ID
     TEMPLATE_ID: 'template_q5pky5m'          // Reemplazar con tu Template ID
 };
 
-// Initialize Supabase client
 let supabaseClient;
 try {
     if (typeof window !== 'undefined' && window.supabase) {
@@ -30,7 +21,6 @@ try {
     supabaseClient = null;
 }
 
-// Initialize EmailJS - with retry in case script hasn't loaded yet
 let emailJSInitialized = false;
 const initEmailJS = () => {
     return new Promise((resolve) => {
@@ -72,6 +62,7 @@ const formatDate = (dateString) => {
     try {
         const date = new Date(dateString);
         return date.toLocaleDateString('es-ES', {
+            timeZone: 'America/Argentina/Buenos_Aires',
             year: 'numeric',
             month: 'short',
             day: 'numeric',
@@ -88,6 +79,7 @@ const formatDateShort = (dateString) => {
     try {
         const date = new Date(dateString);
         return date.toLocaleDateString('es-ES', {
+            timeZone: 'America/Argentina/Buenos_Aires',
             year: 'numeric',
             month: '2-digit',
             day: '2-digit'

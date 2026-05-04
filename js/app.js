@@ -24,6 +24,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let salesChart = null;
     let topProductsChart = null;
 
+    // ── Fecha/hora en zona horaria Argentina (UTC-3) ──────────────────────────
+    const nowArgentina = () => {
+        const now = new Date();
+        const argStr = now.toLocaleString('sv-SE', { timeZone: 'America/Argentina/Buenos_Aires' });
+        return argStr.replace(' ', 'T') + '-03:00';
+    };
+    // ─────────────────────────────────────────────────────────────────────────
+
     // DOM Elements
     const loginScreen = document.getElementById('loginScreen');
     const app = document.getElementById('app');
@@ -258,6 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
         document.body.appendChild(modal);
+
     }
 
     function checkResetToken() {
@@ -460,12 +469,16 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('currentUser').textContent = user.nombre;
             document.getElementById('currentRole').textContent = user.role === 'admin' ? 'Administrador' : 'Empleado';
 
-            const adminSections = document.querySelectorAll('.admin-only');
+            // Only reveal admin MENU ITEMS — never touch content sections here
+            // (content sections are shown/hidden exclusively by handleNavigation)
+            const adminMenuItems = document.querySelectorAll('.menu-item.admin-only');
             if (user.role === 'admin') {
-                adminSections.forEach(el => el.classList.remove('hidden'));
+                adminMenuItems.forEach(el => el.classList.remove('hidden'));
             } else {
-                adminSections.forEach(el => el.classList.add('hidden'));
+                adminMenuItems.forEach(el => el.classList.add('hidden'));
             }
+            // Ensure ALL content sections stay hidden until navigation picks one
+            document.querySelectorAll('.content-section').forEach(s => s.classList.add('hidden'));
 
             loginScreen.classList.add('hidden');
             app.classList.remove('hidden');
@@ -473,6 +486,12 @@ document.addEventListener('DOMContentLoaded', () => {
             await loadInitialData();
             
             if (user.role === 'admin') {
+                // Show only dashboard section on login
+                document.getElementById('dashboardSection').classList.remove('hidden');
+                // Mark dashboard menu item as active
+                menuItems.forEach(item => item.classList.remove('active'));
+                const dashItem = document.querySelector('[data-section="dashboard"]');
+                if (dashItem) dashItem.classList.add('active');
                 loadDashboard();
             } else {
                 document.querySelectorAll('.content-section').forEach(s => s.classList.add('hidden'));
@@ -607,37 +626,63 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Carga todos los productos (activos e inactivos) para mostrar en la tabla de gestión
+    async function loadAllProducts() {
+        if (!supabase) return [];
+        try {
+            const { data, error } = await supabase
+                .from('productos')
+                .select(`*, categorias (nombre)`)
+                .order('nombre');
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Error loading all products:', error);
+            return [];
+        }
+    }
+
     async function loadProductsSection() {
-        await loadProducts();
+        await loadProducts(); // actualiza el array global (solo activos, para el POS)
+        const allProducts = await loadAllProducts(); // todos para la tabla de gestión
         
         const tbody = document.querySelector('#productsTable tbody');
         tbody.innerHTML = '';
 
-        if (products.length === 0) {
+        if (allProducts.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No hay productos</td></tr>';
             return;
         }
 
-        products.forEach(product => {
+        allProducts.forEach(product => {
+            const isActive = product.activo;
             const row = document.createElement('tr');
+            row.style.opacity = isActive ? '1' : '0.6';
             row.innerHTML = `
                 <td>${product.codigo || '-'}</td>
                 <td>${product.nombre}</td>
                 <td>${product.categorias?.nombre || '-'}</td>
                 <td>${formatCurrency(product.precio)}</td>
                 <td>
-                    <span class="status-badge ${product.stock <= product.stock_minimo ? 'status-warning' : 'status-active'}">
+                    <span class="status-badge ${product.stock <= (product.stock_minimo || 5) ? 'status-warning' : 'status-active'}">
                         ${product.stock}
                     </span>
                 </td>
                 <td>
-                    <span class="status-badge status-active">Activo</span>
+                    <span class="status-badge ${isActive ? 'status-active' : 'status-inactive'}">
+                        ${isActive ? 'Activo' : 'Inactivo'}
+                    </span>
                 </td>
-                <td>
-                    <button class="btn-secondary" style="padding: 6px 12px; margin-right: 5px;" onclick="editProduct(${product.id})">
+                <td style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <button class="btn-secondary" style="padding: 6px 12px;" title="Editar" onclick="editProduct('${product.id}')">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="btn-secondary" style="padding: 6px 12px; color: var(--danger);" onclick="deleteProduct(${product.id}, '${product.nombre.replace(/'/g, "\\'")}')">
+                    <button class="btn-secondary" style="padding: 6px 12px; color: ${isActive ? 'var(--warning)' : 'var(--success, #27ae60)'};" 
+                        title="${isActive ? 'Inhabilitar' : 'Activar'}" 
+                        onclick="toggleProductStatus('${product.id}', '${product.nombre.replace(/'/g, "\\'")}', ${isActive})">
+                        <i class="fas fa-${isActive ? 'ban' : 'check-circle'}"></i>
+                    </button>
+                    <button class="btn-secondary" style="padding: 6px 12px; color: var(--danger);" title="Eliminar permanentemente" onclick="deleteProduct('${product.id}', '${product.nombre.replace(/'/g, "\\'")}')">
                         <i class="fas fa-trash"></i>
                     </button>
                 </td>
@@ -648,10 +693,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const searchInput = document.getElementById('searchProducts');
         searchInput.oninput = (e) => {
             const search = e.target.value.toLowerCase();
-            const rows = tbody.querySelectorAll('tr');
-            rows.forEach(row => {
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(search) ? '' : 'none';
+            tbody.querySelectorAll('tr').forEach(row => {
+                row.style.display = row.textContent.toLowerCase().includes(search) ? '' : 'none';
             });
         };
 
@@ -674,7 +717,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (productId) {
-            const product = products.find(p => p.id === productId);
+            // Buscar en productos activos e inactivos
+            let product = products.find(p => p.id === productId);
+            if (!product) {
+                const all = await loadAllProducts();
+                product = all.find(p => p.id === productId);
+            }
             if (product) {
                 title.textContent = 'Editar Producto';
                 document.getElementById('productId').value = product.id;
@@ -772,27 +820,55 @@ document.addEventListener('DOMContentLoaded', () => {
     async function deleteProduct(productId, productName) {
         if (!supabase) return;
 
-        if (!confirm(`¿Está seguro de eliminar el producto "${productName}"?`)) {
+        if (!confirm(`¿Está seguro de ELIMINAR permanentemente el producto "${productName}"? Esta acción no se puede deshacer.`)) {
             return;
         }
 
         try {
             const { error } = await supabase
                 .from('productos')
-                .update({ activo: false })
+                .delete()
                 .eq('id', productId);
 
             if (error) throw error;
 
-            showNotification('Producto eliminado', 'success');
+            showNotification('Producto eliminado permanentemente', 'success');
             loadProductsSection();
         } catch (error) {
             console.error('Error deleting product:', error);
-            showNotification('Error al eliminar producto', 'error');
+            showNotification('Error al eliminar producto. Puede tener ventas asociadas.', 'error');
         }
     }
 
     window.deleteProduct = deleteProduct;
+
+    async function toggleProductStatus(productId, productName, currentStatus) {
+        if (!supabase) return;
+
+        const newStatus = !currentStatus;
+        const action = newStatus ? 'activar' : 'inhabilitar';
+
+        if (!confirm(`¿Está seguro de ${action} el producto "${productName}"?`)) {
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from('productos')
+                .update({ activo: newStatus })
+                .eq('id', productId);
+
+            if (error) throw error;
+
+            showNotification(`Producto ${newStatus ? 'activado' : 'inhabilitado'} correctamente`, 'success');
+            loadProductsSection();
+        } catch (error) {
+            console.error('Error toggling product status:', error);
+            showNotification('Error al cambiar el estado del producto', 'error');
+        }
+    }
+
+    window.toggleProductStatus = toggleProductStatus;
 
     // ==================== CUSTOMERS ====================
     async function loadCustomers() {
@@ -1066,7 +1142,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 .insert([{
                     cliente_id: customerId,
                     monto: amount,
-                    fecha: new Date().toISOString(),
+                    fecha: nowArgentina(),
                     metodo_pago: method,
                     referencia: reference || null,
                     notas: notes || null
@@ -1134,39 +1210,86 @@ document.addEventListener('DOMContentLoaded', () => {
     window.viewDebtHistory = viewDebtHistory;
 
     // ==================== DASHBOARD ====================
+
+    // Module-level chart instances for dashboard
+    let dashSalesChart = null;
+    let dashCategoryChart = null;
+    // Stores last computed lowStock array so the modal closure always has fresh data
+    let _lastLowStock = [];
+
     async function loadDashboard() {
         if (!supabase) return;
 
         try {
-            const today = new Date().toISOString().split('T')[0];
+            // ── VENTAS HOY ────────────────────────────────────────────────
+            const today = nowArgentina().split('T')[0]; // Fecha en hora argentina
             const { data: todaySales } = await supabase
                 .from('ventas')
                 .select('total')
                 .gte('fecha', today)
                 .eq('estado', 'completada');
 
-            const totalToday = todaySales?.reduce((sum, sale) => sum + parseFloat(sale.total), 0) || 0;
+            const totalToday = todaySales?.reduce((sum, s) => sum + parseFloat(s.total), 0) || 0;
             document.getElementById('todaySales').textContent = formatCurrency(totalToday);
             document.getElementById('totalProducts').textContent = products.length;
 
-            const lowStock = products.filter(p => p.stock <= p.stock_minimo);
+            // ── STOCK BAJO ────────────────────────────────────────────────
+            const lowStock = products.filter(p => p.stock <= (p.stock_minimo || 5));
+            _lastLowStock = lowStock; // save to module-level so modal always sees latest
             document.getElementById('lowStockCount').textContent = lowStock.length;
+            const badge = document.getElementById('lowStockBadge');
+            if (badge) badge.textContent = lowStock.length > 0 ? lowStock.length + ' productos' : '';
+
             document.getElementById('totalCustomers').textContent = customers.length;
 
+            // ── TOP PRODUCT ──────────────────────────────────────────────
+            const { data: allSaleDetails } = await supabase
+                .from('venta_detalles')
+                .select('cantidad, productos!inner(nombre)');
+
+            let topProductName = 'Sin datos';
+            let topProductQty  = 0;
+            if (allSaleDetails && allSaleDetails.length > 0) {
+                const productSales = {};
+                allSaleDetails.forEach(item => {
+                    const name = item.productos?.nombre;
+                    if (name) productSales[name] = (productSales[name] || 0) + item.cantidad;
+                });
+                const sorted = Object.entries(productSales).sort((a, b) => b[1] - a[1]);
+                if (sorted.length > 0) { topProductName = sorted[0][0]; topProductQty = sorted[0][1]; }
+            }
+            const nameEl = document.getElementById('topProductName');
+            const qtyEl  = document.getElementById('topProductQty');
+            if (nameEl) nameEl.textContent = topProductName;
+            if (qtyEl)  qtyEl.textContent  = topProductQty > 0 ? `Más vendido · ${topProductQty} uds` : 'Producto más vendido';
+
+            // ── BIND STAT CARD CLICKS (using IDs — no :has() needed) ──────
+            const bindCard = (id, action) => {
+                const card = document.getElementById(id);
+                if (card && !card.dataset.clickBound) {
+                    card.dataset.clickBound = '1';
+                    card.addEventListener('click', action);
+                }
+            };
+            bindCard('statCardSales',     () => document.querySelector('[data-section="sales"]')?.click());
+            bindCard('statCardProducts',  () => document.querySelector('[data-section="products"]')?.click());
+            bindCard('statCardCustomers', () => document.querySelector('[data-section="customers"]')?.click());
+            bindCard('topProductCard',    () => document.querySelector('[data-section="reports"]')?.click());
+            // Stock Bajo card — always re-bind so it uses the freshest _lastLowStock
+            const lowCard = document.getElementById('statCardLowStock');
+            if (lowCard) {
+                lowCard.onclick = () => showLowStockModal(_lastLowStock);
+            }
+
+            // ── RECENT SALES TABLE ────────────────────────────────────────
             const { data: recentSales } = await supabase
                 .from('ventas')
-                .select(`
-                    codigo,
-                    total,
-                    fecha,
-                    clientes (nombre)
-                `)
+                .select('codigo, total, fecha, clientes (nombre)')
                 .order('fecha', { ascending: false })
                 .limit(5);
 
             const recentSalesTable = document.querySelector('#recentSalesTable tbody');
             recentSalesTable.innerHTML = '';
-            
             if (recentSales && recentSales.length > 0) {
                 recentSales.forEach(sale => {
                     const row = document.createElement('tr');
@@ -1179,32 +1302,203 @@ document.addEventListener('DOMContentLoaded', () => {
                     recentSalesTable.appendChild(row);
                 });
             } else {
-                recentSalesTable.innerHTML = '<tr><td colspan="4" style="text-align: center;">No hay ventas recientes</td></tr>';
+                recentSalesTable.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:16px;">No hay ventas recientes</td></tr>';
             }
 
+            // ── LOW STOCK TABLE (with status column) ──────────────────────
             const lowStockTable = document.querySelector('#lowStockTable tbody');
             lowStockTable.innerHTML = '';
-            
             if (lowStock.length > 0) {
-                lowStock.forEach(product => {
+                lowStock.forEach(p => {
                     const row = document.createElement('tr');
+                    const isCritical = p.stock <= 3;
                     row.innerHTML = `
-                        <td>${product.nombre}</td>
-                        <td><span class="status-badge status-warning">${product.stock}</span></td>
-                        <td>${product.stock_minimo}</td>
+                        <td>${p.nombre}</td>
+                        <td><span class="status-badge status-warning">${p.stock}</span></td>
+                        <td>${p.stock_minimo || 5}</td>
+                        <td><span class="status-badge ${isCritical ? 'status-inactive' : 'status-warning'}">${isCritical ? 'CRÍTICO' : 'BAJO'}</span></td>
                     `;
                     lowStockTable.appendChild(row);
                 });
             } else {
-                lowStockTable.innerHTML = '<tr><td colspan="3" style="text-align: center;">No hay productos con stock bajo</td></tr>';
+                lowStockTable.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:16px;">Sin productos con stock bajo ✓</td></tr>';
             }
+
+            // ── MINI CHARTS ───────────────────────────────────────────────
+            await renderDashSalesChart();
+            await renderDashCategoryChart();
 
         } catch (error) {
             console.error('Error loading dashboard:', error);
         }
     }
 
-    // ==================== POS ====================
+    function showLowStockModal(lowStock) {
+        const existing = document.getElementById('lowStockDetailModal');
+        if (existing) existing.remove();
+
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.id = 'lowStockDetailModal';
+
+        const rows = lowStock.length > 0
+            ? lowStock.map(p => {
+                const isCrit = p.stock <= 3;
+                return `<tr>
+                    <td>${p.codigo || '-'}</td>
+                    <td>${p.nombre}</td>
+                    <td>${p.categorias?.nombre || '-'}</td>
+                    <td><span class="status-badge status-warning">${p.stock}</span></td>
+                    <td>${p.stock_minimo || 5}</td>
+                    <td><span class="status-badge ${isCrit ? 'status-inactive' : 'status-warning'}">${isCrit ? 'CRÍTICO' : 'BAJO'}</span></td>
+                </tr>`;
+            }).join('')
+            : '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Sin productos con stock bajo</td></tr>';
+
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width:800px;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-exclamation-triangle" style="color:var(--warning);margin-right:8px;"></i>Productos con Stock Bajo (${lowStock.length})</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Producto</th>
+                                    <th>Categoría</th>
+                                    <th>Stock Actual</th>
+                                    <th>Stock Mínimo</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-primary cerrar-stock-modal">Cerrar</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        modal.querySelector('.cerrar-stock-modal').addEventListener('click', () => modal.remove());
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    }
+
+        // ── Dashboard mini chart: sales last 7 days ──────────────────────────
+    async function renderDashSalesChart() {
+        const canvas = document.getElementById('dashSalesChart');
+        if (!canvas || typeof Chart === 'undefined') return;
+
+        const days = [], labels = [], dataMap = {};
+        const dayNames = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date(); d.setDate(d.getDate() - i);
+            const key = d.toISOString().split('T')[0];
+            days.push(key); dataMap[key] = 0;
+            labels.push(dayNames[d.getDay()]);
+        }
+
+        const { data } = await supabase
+            .from('ventas').select('fecha, total')
+            .gte('fecha', days[0])
+            .lte('fecha', days[6] + 'T23:59:59')
+            .eq('estado', 'completada');
+
+        data?.forEach(s => {
+            const k = s.fecha.split('T')[0];
+            if (dataMap[k] !== undefined) dataMap[k] += parseFloat(s.total);
+        });
+
+        if (dashSalesChart) dashSalesChart.destroy();
+        dashSalesChart = new Chart(canvas, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Ventas',
+                    data: Object.values(dataMap),
+                    borderColor: '#8b5cf6',
+                    backgroundColor: 'rgba(139,92,246,0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#8b5cf6',
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: ctx => ` $${ctx.raw.toFixed(2)}` } }
+                },
+                scales: {
+                    x: { ticks: { color: '#6b6b88', font: { size: 11 } }, grid: { color: 'rgba(139,92,246,0.07)' } },
+                    y: { ticks: { color: '#6b6b88', font: { size: 11 }, callback: v => `$${v}` }, grid: { color: 'rgba(139,92,246,0.07)' }, beginAtZero: true }
+                }
+            }
+        });
+    }
+
+    // ── Dashboard mini chart: category doughnut ──────────────────────────
+    async function renderDashCategoryChart() {
+        const canvas = document.getElementById('dashCategoryChart');
+        if (!canvas || typeof Chart === 'undefined') return;
+
+        const { data, error } = await supabase
+            .from('venta_detalles')
+            .select('cantidad, productos!inner(categorias(nombre))');
+
+        if (error || !data || data.length === 0) {
+            canvas.parentElement.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px 0;font-size:13px;">Sin datos de ventas aún</p>';
+            return;
+        }
+
+        const totals = {};
+        data.forEach(item => {
+            const cat = item.productos?.categorias?.nombre || 'Sin categoría';
+            totals[cat] = (totals[cat] || 0) + item.cantidad;
+        });
+        const sorted  = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+        const palette = ['#8b5cf6','#a78bfa','#6d28d9','#c4b5fd','#7c3aed','#ddd6fe','#4c1d95'];
+
+        if (dashCategoryChart) dashCategoryChart.destroy();
+        dashCategoryChart = new Chart(canvas, {
+            type: 'doughnut',
+            data: {
+                labels: sorted.map(e => e[0]),
+                datasets: [{
+                    data: sorted.map(e => e[1]),
+                    backgroundColor: palette.slice(0, sorted.length),
+                    borderColor: '#16161f',
+                    borderWidth: 2,
+                    hoverOffset: 6
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: true, cutout: '58%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: '#a0a0c0', font: { size: 11 }, padding: 10, boxWidth: 12 } },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => {
+                                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                return ` ${ctx.label}: ${ctx.raw} uds (${((ctx.raw/total)*100).toFixed(1)}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+
+
+        // ==================== POS ====================
     function loadPOS() {
         renderProductGrid();
         updateCart();
@@ -1350,6 +1644,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const modal = document.getElementById('checkoutModal');
         const form = document.getElementById('checkoutForm');
 
+        // ── FULL RESET every time the modal opens ─────────────────────────
+        form.reset();
+        // OCULTO: reset de sección de pago parcial (elementos removidos del HTML)
+        // const _partialSection = document.getElementById('partialPaymentSection');
+        // const _partialAmount  = document.getElementById('partialAmount');
+        // if (_partialSection) _partialSection.classList.add('hidden');
+        // if (_partialAmount)  { _partialAmount.required = false; _partialAmount.value = ''; }
+        const _paymentType = document.getElementById('paymentType');
+        if (_paymentType) _paymentType.value = 'efectivo';
+        // OCULTO: reset de montos de deuda (elementos removidos del HTML)
+        // const _paidAmountEl = document.getElementById('paidAmount');
+        // const _remainingEl  = document.getElementById('remainingDebt');
+        // if (_paidAmountEl) _paidAmountEl.textContent = '$0.00';
+        // if (_remainingEl)  _remainingEl.textContent  = '$0.00';
+        // ─────────────────────────────────────────────────────────────────
+
         const subtotal = cart.reduce((sum, item) => sum + (item.precio * item.quantity), 0);
         const discount = parseFloat(document.getElementById('discountInput').value) || 0;
         const total = Math.max(0, subtotal - discount);
@@ -1365,39 +1675,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         const paymentType = document.getElementById('paymentType');
-        const partialSection = document.getElementById('partialPaymentSection');
-        const partialAmount = document.getElementById('partialAmount');
+        // OCULTO: lógica de pago mixto/crédito deshabilitada (elementos removidos del HTML)
+        // const partialSection = document.getElementById('partialPaymentSection');
+        // const partialAmount = document.getElementById('partialAmount');
         const customerSelectField = document.getElementById('saleCustomer');
 
         paymentType.onchange = () => {
-            const type = paymentType.value;
-            
-            if (type === 'mixto') {
-                partialSection.classList.remove('hidden');
-                partialAmount.required = true;
-                partialAmount.max = total;
-                if (!customerSelectField.value) {
-                    showNotification('Para pago mixto debe seleccionar un cliente', 'warning');
-                }
-            } else if (type === 'credito') {
-                partialSection.classList.add('hidden');
-                partialAmount.required = false;
-                if (!customerSelectField.value) {
-                    showNotification('Para ventas a crédito debe seleccionar un cliente', 'warning');
-                }
-            } else {
-                partialSection.classList.add('hidden');
-                partialAmount.required = false;
-            }
+            // OCULTO: lógica de pago mixto/crédito deshabilitada
+            // const type = paymentType.value;
+            // if (type === 'mixto') { ... } else if (type === 'credito') { ... }
         };
 
-        partialAmount.oninput = () => {
-            const paid = parseFloat(partialAmount.value) || 0;
-            const remaining = Math.max(0, total - paid);
-            
-            document.getElementById('paidAmount').textContent = formatCurrency(paid);
-            document.getElementById('remainingDebt').textContent = formatCurrency(remaining);
-        };
+        // OCULTO: cálculo de monto parcial deshabilitado
+        // partialAmount.oninput = () => { ... };
 
         modal.classList.remove('hidden');
 
@@ -1450,7 +1740,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const saleData = {
             codigo: 'V-' + Date.now(),
-            fecha: new Date().toISOString(),
+            fecha: nowArgentina(),
             cliente_id: finalCustomerId,
             vendedor_id: currentUser.id,
             subtotal: subtotal,
@@ -1513,7 +1803,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     await supabase.from('pagos').insert([{
                         cliente_id: finalCustomerId,
                         monto: paidAmount,
-                        fecha: new Date().toISOString(),
+                        fecha: nowArgentina(),
                         metodo_pago: 'mixto',
                         referencia: `Pago parcial venta ${saleData.codigo}`,
                         notas: `Venta: ${formatCurrency(total)}, Pagado: ${formatCurrency(paidAmount)}, Deuda: ${formatCurrency(debtAmount)}`
@@ -1537,9 +1827,16 @@ document.addEventListener('DOMContentLoaded', () => {
             updateCart();
 
             document.getElementById('checkoutForm').reset();
-            document.getElementById('partialPaymentSection').classList.add('hidden');
-            document.getElementById('paidAmount').textContent = '$0.00';
-            document.getElementById('remainingDebt').textContent = '$0.00';
+            // OCULTO: reset de sección de pago parcial (elementos removidos del HTML)
+            // const partialAmountEl = document.getElementById('partialAmount');
+            // if (partialAmountEl) { partialAmountEl.required = false; partialAmountEl.value = ''; }
+            // const partialSectionEl = document.getElementById('partialPaymentSection');
+            // if (partialSectionEl) partialSectionEl.classList.add('hidden');
+            const paymentTypeEl = document.getElementById('paymentType');
+            if (paymentTypeEl) paymentTypeEl.value = 'efectivo';
+            // OCULTO: reset de montos de deuda (elementos removidos del HTML)
+            // document.getElementById('paidAmount').textContent = '$0.00';
+            // document.getElementById('remainingDebt').textContent = '$0.00';
 
             await loadProducts();
             await loadCustomers();
@@ -1590,7 +1887,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td><span class="status-badge status-info">${sale.metodo_pago}</span></td>
                     <td>${formatDate(sale.fecha)}</td>
                     <td>
-                        <button class="btn-secondary" style="padding: 6px 12px;" onclick="viewSaleDetails(${sale.id})">
+                        <button class="btn-secondary" style="padding: 6px 12px;" onclick="viewSaleDetails('${sale.id}')">
                             <i class="fas fa-eye"></i>
                         </button>
                     </td>
@@ -1614,22 +1911,82 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!supabase) return;
 
         try {
+            // Obtener detalles de los productos
             const { data: details } = await supabase
                 .from('venta_detalles')
-                .select(`
-                    *,
-                    productos (nombre)
-                `)
+                .select(`*, productos (nombre, codigo)`)
                 .eq('venta_id', saleId);
 
-            let message = 'Detalles de la venta:\n\n';
-            details?.forEach(d => {
-                message += `${d.productos.nombre} - ${d.cantidad} x ${formatCurrency(d.precio_unitario)} = ${formatCurrency(d.subtotal)}\n`;
-            });
+            // Obtener info de la venta (cliente, vendedor, fecha, método, total)
+            const { data: sale } = await supabase
+                .from('ventas')
+                .select(`*, clientes (nombre), usuarios (nombre)`)
+                .eq('id', saleId)
+                .single();
 
-            alert(message);
+            // Construir filas de productos
+            const rows = details?.map(d => `
+                <tr>
+                    <td>${d.productos?.codigo || '-'}</td>
+                    <td>${d.productos?.nombre || '-'}</td>
+                    <td style="text-align:center;">${d.cantidad}</td>
+                    <td>${formatCurrency(d.precio_unitario)}</td>
+                    <td style="font-weight:600;">${formatCurrency(d.subtotal)}</td>
+                </tr>
+            `).join('') || '<tr><td colspan="5" style="text-align:center;">Sin productos</td></tr>';
+
+            // Crear modal
+            const existing = document.getElementById('saleDetailModal');
+            if (existing) existing.remove();
+
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.id = 'saleDetailModal';
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 650px;">
+                    <div class="modal-header">
+                        <h3><i class="fas fa-receipt" style="margin-right:8px;"></i>Detalle de Venta — ${sale?.codigo || ''}</h3>
+                        <button class="close-modal" onclick="document.getElementById('saleDetailModal').remove()">&times;</button>
+                    </div>
+                    <div class="card-body">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px; font-size:13px;">
+                            <div><span style="color:var(--text-muted);">Cliente:</span> <strong>${sale?.clientes?.nombre || 'Venta General'}</strong></div>
+                            <div><span style="color:var(--text-muted);">Vendedor:</span> <strong>${sale?.usuarios?.nombre || '-'}</strong></div>
+                            <div><span style="color:var(--text-muted);">Método de pago:</span> <strong>${sale?.metodo_pago || '-'}</strong></div>
+                            <div><span style="color:var(--text-muted);">Fecha:</span> <strong>${formatDate(sale?.fecha)}</strong></div>
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Producto</th>
+                                        <th style="text-align:center;">Cant.</th>
+                                        <th>Precio Unit.</th>
+                                        <th>Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${rows}</tbody>
+                            </table>
+                        </div>
+                        <div style="margin-top:16px; text-align:right; font-size:15px;">
+                            ${sale?.descuento > 0 ? `<div style="color:var(--text-muted); margin-bottom:4px;">Descuento: -${formatCurrency(sale.descuento)}</div>` : ''}
+                            <strong style="font-size:18px; color:var(--primary-light);">Total: ${formatCurrency(sale?.total)}</strong>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn-primary" onclick="document.getElementById('saleDetailModal').remove()">Cerrar</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+            // Cerrar al hacer clic fuera
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
         } catch (error) {
             console.error('Error loading sale details:', error);
+            showNotification('Error al cargar el detalle de la venta', 'error');
         }
     };
 
@@ -1796,6 +2153,7 @@ async function exportSalesReport() {
         try {
             showNotification('Generando reporte de ventas...', 'info');
             
+            const endDateFull = endDate + 'T23:59:59';
             const { data: sales, error } = await supabase
                 .from('ventas')
                 .select(`
@@ -1804,7 +2162,7 @@ async function exportSalesReport() {
                     usuarios (nombre)
                 `)
                 .gte('fecha', startDate)
-                .lte('fecha', endDate)
+                .lte('fecha', endDateFull)
                 .order('fecha', { ascending: false });
                 
             if (error) throw error;
@@ -1872,21 +2230,37 @@ async function exportDebtorsReport() {
     showDateRangePicker(async (startDate, endDate) => {
         try {
             showNotification('Generando reporte de morosos...', 'info');
-            
-            const { data: debtors, error } = await supabase
+
+            const endDateFull = endDate + 'T23:59:59';
+
+            // Get sales within the date range that have a client and are on credit/mixed
+            const { data: salesInRange, error: salesErr } = await supabase
+                .from('ventas')
+                .select('cliente_id, total, fecha, codigo, metodo_pago')
+                .gte('fecha', startDate)
+                .lte('fecha', endDateFull)
+                .not('cliente_id', 'is', null)
+                .in('metodo_pago', ['credito', 'mixto'])
+                .eq('estado', 'completada');
+
+            if (salesErr) throw salesErr;
+
+            // Collect client IDs that appear in those sales
+            const clientIdsInRange = [...new Set((salesInRange || []).map(s => s.cliente_id))];
+
+            // Get debtors — filter to only those who had sales in the range (or all debtors if none)
+            let debtorsQuery = supabase
                 .from('clientes')
-                .select(`
-                    *,
-                    ventas!ventas_cliente_id_fkey (
-                        fecha,
-                        total,
-                        codigo
-                    )
-                `)
+                .select(`*, ventas!ventas_cliente_id_fkey (fecha, total, codigo)`)
                 .gt('deuda_total', 0)
                 .eq('activo', true)
                 .order('deuda_total', { ascending: false });
-                
+
+            if (clientIdsInRange.length > 0) {
+                debtorsQuery = debtorsQuery.in('id', clientIdsInRange);
+            }
+
+            const { data: debtors, error } = await debtorsQuery;
             if (error) throw error;
             
             const totalDebt = debtors?.reduce((sum, d) => sum + parseFloat(d.deuda_total || 0), 0) || 0;
@@ -1946,8 +2320,10 @@ function showDateRangePicker(callback) {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(today.getDate() - 30);
     
-    document.getElementById('startDate').value = thirtyDaysAgo.toISOString().split('T')[0];
-    document.getElementById('endDate').value = today.toISOString().split('T')[0];
+    const toArgDate = (d) => d.toLocaleDateString('sv-SE', { timeZone: 'America/Argentina/Buenos_Aires' });
+
+    document.getElementById('startDate').value = toArgDate(thirtyDaysAgo);
+    document.getElementById('endDate').value = toArgDate(today);
     
     // Función para fechas rápidas
     const quickSelect = document.getElementById('quickDateRange');
@@ -1979,8 +2355,8 @@ function showDateRangePicker(callback) {
                 return;
         }
         
-        document.getElementById('startDate').value = start.toISOString().split('T')[0];
-        document.getElementById('endDate').value = now.toISOString().split('T')[0];
+        document.getElementById('startDate').value = toArgDate(start);
+        document.getElementById('endDate').value = toArgDate(now);
     };
     
     const form = document.getElementById('dateRangeForm');
@@ -1995,7 +2371,7 @@ function showDateRangePicker(callback) {
 
 // Funciones de generación de HTML (mejoradas)
 function generateSalesReportHTML(sales, startDate, endDate, totals) {
-    const fechaGeneracion = new Date().toLocaleString('es-ES');
+    const fechaGeneracion = new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
     
     return `
         <!DOCTYPE html>
@@ -2167,7 +2543,7 @@ function generateSalesReportHTML(sales, startDate, endDate, totals) {
 }
 
 function generateLowStockReportHTML(products) {
-    const fechaGeneracion = new Date().toLocaleString('es-ES');
+    const fechaGeneracion = new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
     
     return `
         <!DOCTYPE html>
@@ -2295,7 +2671,7 @@ function generateLowStockReportHTML(products) {
 }
 
 function generateDebtorsReportHTML(debtors, startDate, endDate, totalDebt) {
-    const fechaGeneracion = new Date().toLocaleString('es-ES');
+    const fechaGeneracion = new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
     
     return `
         <!DOCTYPE html>
@@ -2424,177 +2800,375 @@ function generateDebtorsReportHTML(debtors, startDate, endDate, totalDebt) {
 }
 
     // ==================== REPORTS ====================
+
+    // Current period state for the sales chart
+    let currentChartPeriod = 'weekly';
+
     async function loadReports() {
         if (!supabase) return;
-        
-        const salesChartCanvas = document.getElementById('salesChart');
-        const topProductsCanvas = document.getElementById('topProductsCanvas');
-        
-        if (salesChartCanvas) {
-            salesChartCanvas.style.opacity = '0.5';
-        }
-        if (topProductsCanvas) {
-            topProductsCanvas.style.opacity = '0.5';
-        }
-        
+
+        // ── Export buttons ──────────────────────────────────────────────
         const reportsSection = document.getElementById('reportsSection');
-        const sectionHeader = reportsSection?.querySelector('.section-header');
-        
+        const sectionHeader  = reportsSection?.querySelector('.section-header');
+
         if (sectionHeader && !document.getElementById('exportButtonsContainer')) {
             const exportDiv = document.createElement('div');
             exportDiv.id = 'exportButtonsContainer';
-            exportDiv.style.display = 'flex';
-            exportDiv.style.gap = '10px';
+            exportDiv.style.cssText = 'display:flex; gap:10px; flex-wrap:wrap;';
             exportDiv.innerHTML = `
-                <button id="exportSalesBtn" class="btn-primary" style="background: #27ae60;">
+                <button id="exportSalesBtn" class="btn-primary">
                     <i class="fas fa-chart-line"></i> Exportar Ventas
                 </button>
-                <button id="exportLowStockBtn" class="btn-primary" style="background: #e74c3c;">
+                <button id="exportLowStockBtn" class="btn-primary" style="background:linear-gradient(135deg,#9f1239,#f43f5e);">
                     <i class="fas fa-boxes"></i> Stock Bajo
                 </button>
-                <button id="exportDebtorsBtn" class="btn-primary" style="background: #f39c12;">
+                <!-- OCULTO: Botón de morosos deshabilitado temporalmente
+                <button id="exportDebtorsBtn" class="btn-primary" style="background:linear-gradient(135deg,#92400e,#f59e0b);">
                     <i class="fas fa-file-invoice-dollar"></i> Morosos
                 </button>
+                -->
             `;
             sectionHeader.appendChild(exportDiv);
-            
-            document.getElementById('exportSalesBtn').onclick = exportSalesReport;
+            document.getElementById('exportSalesBtn').onclick    = exportSalesReport;
             document.getElementById('exportLowStockBtn').onclick = exportLowStockReport;
-            document.getElementById('exportDebtorsBtn').onclick = exportDebtorsReport;
+            // OCULTO: document.getElementById('exportDebtorsBtn').onclick  = exportDebtorsReport;
         }
-        
+
+        // ── Period toggle buttons ────────────────────────────────────────
+        document.querySelectorAll('.chart-period-btn').forEach(btn => {
+            btn.onclick = async () => {
+                document.querySelectorAll('.chart-period-btn').forEach(b => {
+                    b.style.background = 'var(--bg-raised)';
+                    b.style.color      = 'var(--text-muted)';
+                });
+                btn.style.background = 'var(--primary)';
+                btn.style.color      = 'white';
+                currentChartPeriod   = btn.dataset.period;
+                await renderSalesChart();
+            };
+        });
+
+        await renderSalesChart();
+        await renderCategoryPieChart();
+        await renderTopProductsBarChart();
+
+        // Re-render bar chart when limit changes
+        const limitSelect = document.getElementById('topProductsLimit');
+        if (limitSelect && !limitSelect.dataset.bound) {
+            limitSelect.dataset.bound = '1';
+            limitSelect.onchange = () => renderTopProductsBarChart();
+        }
+    }
+
+    // ── Sales line/bar chart — respects currentChartPeriod ─────────────
+    async function renderSalesChart() {
+        if (!supabase) return;
+
+        const canvas = document.getElementById('salesChart');
+        if (!canvas) return;
+        canvas.style.opacity = '0.4';
+
         try {
-            const last7Days = [];
-            for (let i = 6; i >= 0; i--) {
-                const date = new Date();
-                date.setDate(date.getDate() - i);
-                last7Days.push(date.toISOString().split('T')[0]);
-            }
-            
-            const { data: salesData, error: salesError } = await supabase
-                .from('ventas')
-                .select('fecha, total')
-                .gte('fecha', last7Days[0])
-                .eq('estado', 'completada');
-            
-            if (salesError) throw salesError;
-            
-            const salesByDay = {};
-            last7Days.forEach(day => {
-                salesByDay[day] = 0;
-            });
-            
-            salesData?.forEach(sale => {
-                const saleDate = sale.fecha.split('T')[0];
-                if (salesByDay[saleDate] !== undefined) {
-                    salesByDay[saleDate] += parseFloat(sale.total);
+            let labels = [];
+            let dataMap = {};
+            let fromDate, toDate;
+            const now = new Date();
+
+            if (currentChartPeriod === 'weekly') {
+                // Last 7 days
+                const days = [];
+                for (let i = 6; i >= 0; i--) {
+                    const d = new Date(now);
+                    d.setDate(now.getDate() - i);
+                    days.push(d.toISOString().split('T')[0]);
                 }
-            });
-            
-            const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-            const chartLabels = last7Days.map(date => {
-                const d = new Date(date);
-                return dayNames[d.getDay()];
-            });
-            const chartData = last7Days.map(day => salesByDay[day]);
-            
-            const { data: topProducts, error: productsError } = await supabase
-                .from('venta_detalles')
-                .select(`
-                    cantidad,
-                    productos!inner (nombre)
-                `);
-            
-            if (productsError) throw productsError;
-            
-            const productSales = {};
-            topProducts?.forEach(item => {
-                const productName = item.productos?.nombre;
-                if (productName) {
-                    productSales[productName] = (productSales[productName] || 0) + item.cantidad;
+                fromDate = days[0];
+                toDate   = days[days.length - 1] + 'T23:59:59';
+                const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+                days.forEach(day => {
+                    const d = new Date(day);
+                    labels.push(dayNames[d.getDay()]);
+                    dataMap[day] = 0;
+                });
+
+                const { data } = await supabase
+                    .from('ventas').select('fecha, total')
+                    .gte('fecha', fromDate).lte('fecha', toDate)
+                    .eq('estado', 'completada');
+
+                data?.forEach(s => {
+                    const k = s.fecha.split('T')[0];
+                    if (dataMap[k] !== undefined) dataMap[k] += parseFloat(s.total);
+                });
+
+            } else if (currentChartPeriod === 'monthly') {
+                // Last 12 months
+                const monthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+                const months = [];
+                for (let i = 11; i >= 0; i--) {
+                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    months.push(key);
+                    labels.push(monthNames[d.getMonth()]);
+                    dataMap[key] = 0;
                 }
-            });
-            
-            const sortedProducts = Object.entries(productSales)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 5);
-            
-            const topProductsLabels = sortedProducts.map(p => p[0]);
-            const topProductsData = sortedProducts.map(p => p[1]);
-            
-            if (salesChart && typeof Chart !== 'undefined') {
-                salesChart.destroy();
+                fromDate = months[0] + '-01';
+                toDate   = now.toISOString().split('T')[0] + 'T23:59:59';
+
+                const { data } = await supabase
+                    .from('ventas').select('fecha, total')
+                    .gte('fecha', fromDate).lte('fecha', toDate)
+                    .eq('estado', 'completada');
+
+                data?.forEach(s => {
+                    const k = s.fecha.substring(0, 7);
+                    if (dataMap[k] !== undefined) dataMap[k] += parseFloat(s.total);
+                });
+
+            } else if (currentChartPeriod === 'yearly') {
+                // Last 5 years
+                const years = [];
+                for (let i = 4; i >= 0; i--) {
+                    const y = now.getFullYear() - i;
+                    years.push(String(y));
+                    labels.push(String(y));
+                    dataMap[String(y)] = 0;
+                }
+                fromDate = years[0] + '-01-01';
+                toDate   = years[years.length - 1] + '-12-31T23:59:59';
+
+                const { data } = await supabase
+                    .from('ventas').select('fecha, total')
+                    .gte('fecha', fromDate).lte('fecha', toDate)
+                    .eq('estado', 'completada');
+
+                data?.forEach(s => {
+                    const k = s.fecha.substring(0, 4);
+                    if (dataMap[k] !== undefined) dataMap[k] += parseFloat(s.total);
+                });
             }
-            if (topProductsChart && typeof Chart !== 'undefined') {
-                topProductsChart.destroy();
-            }
-            
-            if (salesChartCanvas && typeof Chart !== 'undefined') {
-                salesChart = new Chart(salesChartCanvas, {
+
+            const chartData = Object.values(dataMap);
+
+            if (salesChart && typeof Chart !== 'undefined') salesChart.destroy();
+
+            if (typeof Chart !== 'undefined') {
+                salesChart = new Chart(canvas, {
                     type: 'line',
                     data: {
-                        labels: chartLabels,
+                        labels,
                         datasets: [{
                             label: 'Ventas (USD)',
                             data: chartData,
-                            borderColor: '#1a5f23',
-                            backgroundColor: 'rgba(26, 95, 35, 0.1)',
+                            borderColor: '#8b5cf6',
+                            backgroundColor: 'rgba(139, 92, 246, 0.12)',
                             tension: 0.4,
-                            fill: true
+                            fill: true,
+                            pointBackgroundColor: '#8b5cf6',
+                            pointRadius: 4,
+                            pointHoverRadius: 7
                         }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        animation: { duration: 500 },
                         plugins: {
+                            legend: { labels: { color: '#a0a0c0' } },
                             tooltip: {
                                 callbacks: {
-                                    label: function(context) {
-                                        return `$${context.raw.toFixed(2)}`;
-                                    }
+                                    label: ctx => `$${ctx.raw.toFixed(2)}`
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { ticks: { color: '#6b6b88' }, grid: { color: 'rgba(139,92,246,0.07)' } },
+                            y: { ticks: { color: '#6b6b88', callback: v => `$${v}` }, grid: { color: 'rgba(139,92,246,0.07)' }, beginAtZero: true }
+                        }
+                    }
+                });
+            }
+        } catch (err) {
+            console.error('Error rendering sales chart:', err);
+        } finally {
+            canvas.style.opacity = '1';
+        }
+    }
+
+    // ── Category pie chart ───────────────────────────────────────────────
+    async function renderCategoryPieChart() {
+        if (!supabase) return;
+
+        const canvas = document.getElementById('topProductsCanvas');
+        if (!canvas) return;
+        canvas.style.opacity = '0.4';
+
+        try {
+            // Join venta_detalles → productos → categorias
+            const { data, error } = await supabase
+                .from('venta_detalles')
+                .select('cantidad, productos!inner(nombre, categorias(nombre))');
+
+            if (error) throw error;
+
+            const catTotals = {};
+            data?.forEach(item => {
+                const cat = item.productos?.categorias?.nombre || 'Sin categoría';
+                catTotals[cat] = (catTotals[cat] || 0) + item.cantidad;
+            });
+
+            const sorted = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
+            const pieLabels = sorted.map(e => e[0]);
+            const pieData   = sorted.map(e => e[1]);
+
+            const palette = [
+                '#8b5cf6', '#a78bfa', '#6d28d9', '#c4b5fd',
+                '#7c3aed', '#ddd6fe', '#4c1d95', '#ede9fe'
+            ];
+
+            if (topProductsChart && typeof Chart !== 'undefined') topProductsChart.destroy();
+
+            if (typeof Chart !== 'undefined') {
+                topProductsChart = new Chart(canvas, {
+                    type: 'doughnut',
+                    data: {
+                        labels: pieLabels,
+                        datasets: [{
+                            data: pieData,
+                            backgroundColor: palette.slice(0, pieLabels.length),
+                            borderColor: '#16161f',
+                            borderWidth: 3,
+                            hoverOffset: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        cutout: '55%',
+                        animation: { duration: 600 },
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    color: '#a0a0c0',
+                                    padding: 14,
+                                    font: { size: 12 },
+                                    boxWidth: 14
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: ctx => ` ${ctx.label}: ${ctx.raw} uds (${((ctx.raw / pieData.reduce((a,b)=>a+b,0))*100).toFixed(1)}%)`
                                 }
                             }
                         }
                     }
                 });
             }
-            
-            if (topProductsCanvas && typeof Chart !== 'undefined') {
-                topProductsChart = new Chart(topProductsCanvas, {
+
+            if (pieData.length === 0) {
+                canvas.parentElement.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:40px 0;">Sin datos de ventas aún</p>';
+            }
+        } catch (err) {
+            console.error('Error rendering category chart:', err);
+        } finally {
+            if (canvas) canvas.style.opacity = '1';
+        }
+    }
+
+    // ── Top products bar chart ───────────────────────────────────────────
+    let topProductsBarChart = null;
+
+    async function renderTopProductsBarChart() {
+        if (!supabase) return;
+
+        const canvas = document.getElementById('topProductsBarCanvas');
+        if (!canvas) return;
+        canvas.style.opacity = '0.4';
+
+        const limit = parseInt(document.getElementById('topProductsLimit')?.value || '5');
+
+        try {
+            const { data, error } = await supabase
+                .from('venta_detalles')
+                .select('cantidad, productos!inner(nombre)');
+
+            if (error) throw error;
+
+            const productTotals = {};
+            data?.forEach(item => {
+                const name = item.productos?.nombre;
+                if (name) productTotals[name] = (productTotals[name] || 0) + item.cantidad;
+            });
+
+            const sorted = Object.entries(productTotals)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, limit);
+
+            const labels = sorted.map(e => e[0]);
+            const values = sorted.map(e => e[1]);
+
+            // Gradient-like palette — brightest bar for #1, dimming down
+            const bgColors = labels.map((_, i) => {
+                const opacity = 1 - (i / labels.length) * 0.55;
+                return `rgba(139, 92, 246, ${opacity})`;
+            });
+
+            if (topProductsBarChart && typeof Chart !== 'undefined') topProductsBarChart.destroy();
+
+            if (typeof Chart !== 'undefined') {
+                topProductsBarChart = new Chart(canvas, {
                     type: 'bar',
                     data: {
-                        labels: topProductsLabels,
+                        labels,
                         datasets: [{
-                            label: 'Unidades Vendidas',
-                            data: topProductsData,
-                            backgroundColor: '#1a5f23',
-                            borderRadius: 8
+                            label: 'Unidades vendidas',
+                            data: values,
+                            backgroundColor: bgColors,
+                            borderColor: 'rgba(139, 92, 246, 0.9)',
+                            borderWidth: 1,
+                            borderRadius: 6,
+                            borderSkipped: false
                         }]
                     },
                     options: {
+                        indexAxis: 'y',
                         responsive: true,
                         maintainAspectRatio: false,
+                        animation: { duration: 500 },
                         plugins: {
+                            legend: { display: false },
                             tooltip: {
                                 callbacks: {
-                                    label: function(context) {
-                                        return `${context.raw} unidades`;
-                                    }
+                                    label: ctx => ` ${ctx.raw} unidades`
                                 }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                ticks: { color: '#6b6b88', precision: 0 },
+                                grid: { color: 'rgba(139,92,246,0.07)' }
+                            },
+                            y: {
+                                ticks: {
+                                    color: '#d0d0e8',
+                                    font: { size: 12, weight: '500' }
+                                },
+                                grid: { display: false }
                             }
                         }
                     }
                 });
             }
-            
-            salesChartCanvas.style.opacity = '1';
-            if (topProductsCanvas) topProductsCanvas.style.opacity = '1';
-            
-        } catch (error) {
-            console.error('Error loading reports:', error);
-            showNotification('Error al cargar los reportes', 'error');
-            if (salesChartCanvas) salesChartCanvas.style.opacity = '1';
-            if (topProductsCanvas) topProductsCanvas.style.opacity = '1';
+
+            if (values.length === 0) {
+                canvas.parentElement.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:40px 0;">Sin datos de ventas aún</p>';
+            }
+        } catch (err) {
+            console.error('Error rendering top products chart:', err);
+        } finally {
+            if (canvas) canvas.style.opacity = '1';
         }
     }
 

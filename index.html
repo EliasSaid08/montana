@@ -1,7 +1,3 @@
-
-
-
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -94,10 +90,12 @@
                     <i class="fas fa-users"></i>
                     <span>Clientes</span>
                 </div>
+                <!-- OCULTO: Sección Cuentas por Cobrar deshabilitada temporalmente
                 <div class="menu-item" data-section="debts">
                     <i class="fas fa-file-invoice-dollar"></i>
                     <span>Cuentas por Cobrar</span>
                 </div>
+                -->
                 <div class="menu-item" data-section="sales">
                     <i class="fas fa-receipt"></i>
                     <span>Ventas</span>
@@ -134,9 +132,9 @@
                 </div>
                 
                 <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon" style="background: #e8f5e9;">
-                            <i class="fas fa-dollar-sign" style="color: #2e7d32;"></i>
+                    <div class="stat-card" id="statCardSales" style="cursor:pointer;" title="Ver ventas">
+                        <div class="stat-icon" style="background: rgba(139,92,246,0.15);">
+                            <i class="fas fa-dollar-sign" style="color: var(--primary-light);"></i>
                         </div>
                         <div class="stat-info">
                             <h3 id="todaySales">$0.00</h3>
@@ -144,9 +142,9 @@
                         </div>
                     </div>
                     
-                    <div class="stat-card">
-                        <div class="stat-icon" style="background: #e3f2fd;">
-                            <i class="fas fa-microchip" style="color: #1976d2;"></i>
+                    <div class="stat-card" id="statCardProducts" style="cursor:pointer;" title="Ver productos">
+                        <div class="stat-icon" style="background: rgba(56,189,248,0.15);">
+                            <i class="fas fa-microchip" style="color: #38bdf8;"></i>
                         </div>
                         <div class="stat-info">
                             <h3 id="totalProducts">0</h3>
@@ -154,9 +152,9 @@
                         </div>
                     </div>
                     
-                    <div class="stat-card">
-                        <div class="stat-icon" style="background: #fff3e0;">
-                            <i class="fas fa-exclamation-triangle" style="color: #f57c00;"></i>
+                    <div class="stat-card" id="statCardLowStock" style="cursor:pointer;" title="Ver productos con stock bajo">
+                        <div class="stat-icon" style="background: rgba(245,158,11,0.15);">
+                            <i class="fas fa-exclamation-triangle" style="color: var(--warning);"></i>
                         </div>
                         <div class="stat-info">
                             <h3 id="lowStockCount">0</h3>
@@ -164,13 +162,43 @@
                         </div>
                     </div>
                     
-                    <div class="stat-card">
-                        <div class="stat-icon" style="background: #fce4ec;">
-                            <i class="fas fa-users" style="color: #c2185b;"></i>
+                    <div class="stat-card" id="statCardCustomers" style="cursor:pointer;" title="Ver clientes">
+                        <div class="stat-icon" style="background: rgba(244,63,94,0.15);">
+                            <i class="fas fa-users" style="color: var(--danger);"></i>
                         </div>
                         <div class="stat-info">
                             <h3 id="totalCustomers">0</h3>
                             <p>Clientes</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card" id="topProductCard" style="cursor:pointer;" title="Ver reportes de ventas">
+                        <div class="stat-icon" style="background: rgba(139,92,246,0.15);">
+                            <i class="fas fa-trophy" style="color: var(--primary-light);"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="topProductName" style="font-size:15px; font-weight:700;">-</h3>
+                            <p id="topProductQty">Producto más vendido</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mini charts row -->
+                <div class="dashboard-grid" style="margin-bottom:20px;">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-chart-line"></i> Ventas — Últimos 7 días</h3>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="dashSalesChart" height="160"></canvas>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-chart-pie"></i> Ventas por Categoría</h3>
+                        </div>
+                        <div class="card-body" style="display:flex;align-items:center;justify-content:center;min-height:160px;">
+                            <canvas id="dashCategoryChart" height="160" style="max-height:160px;max-width:260px;"></canvas>
                         </div>
                     </div>
                 </div>
@@ -200,6 +228,7 @@
                     <div class="card">
                         <div class="card-header">
                             <h3><i class="fas fa-boxes"></i> Productos con Stock Bajo</h3>
+                            <span id="lowStockBadge" style="background:rgba(245,158,11,0.15);color:var(--warning);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;"></span>
                         </div>
                         <div class="card-body">
                             <div class="table-responsive">
@@ -209,6 +238,7 @@
                                             <th>Producto</th>
                                             <th>Stock</th>
                                             <th>Mínimo</th>
+                                            <th>Estado</th>
                                         </tr>
                                     </thead>
                                     <tbody></tbody>
@@ -434,7 +464,12 @@
                 <div class="reports-grid">
                     <div class="card">
                         <div class="card-header">
-                            <h3>Ventas por Día</h3>
+                            <h3><i class="fas fa-chart-line"></i> Ventas</h3>
+                            <div style="display:flex; gap:6px;">
+                                <button class="chart-period-btn active" data-period="weekly" style="padding:5px 12px; border:1px solid var(--border); background:var(--primary); color:white; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">Semanal</button>
+                                <button class="chart-period-btn" data-period="monthly" style="padding:5px 12px; border:1px solid var(--border); background:var(--bg-raised); color:var(--text-muted); border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">Mensual</button>
+                                <button class="chart-period-btn" data-period="yearly" style="padding:5px 12px; border:1px solid var(--border); background:var(--bg-raised); color:var(--text-muted); border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">Anual</button>
+                            </div>
                         </div>
                         <div class="card-body">
                             <canvas id="salesChart" height="200"></canvas>
@@ -443,11 +478,28 @@
 
                     <div class="card">
                         <div class="card-header">
-                            <h3>Productos Más Vendidos</h3>
+                            <h3><i class="fas fa-chart-pie"></i> Ventas por Categoría</h3>
                         </div>
-                        <div class="card-body">
-                            <canvas id="topProductsChart" height="200"></canvas>
+                        <div class="card-body" style="display:flex; align-items:center; justify-content:center; min-height:240px;">
+                            <canvas id="topProductsCanvas" height="220" style="max-height:220px; max-width:320px;"></canvas>
                         </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top:20px;">
+                    <div class="card-header">
+                        <h3><i class="fas fa-trophy"></i> Productos Más Vendidos</h3>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <label style="font-size:12px; color:var(--text-muted); font-weight:500;">Top</label>
+                            <select id="topProductsLimit" style="padding:4px 8px; background:var(--bg-raised); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); font-size:12px; cursor:pointer;">
+                                <option value="5">5</option>
+                                <option value="10">10</option>
+                                <option value="15">15</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="topProductsBarCanvas" height="120"></canvas>
                     </div>
                 </div>
             </section>
@@ -721,11 +773,14 @@
                         <option value="efectivo">Efectivo - Pago Completo</option>
                         <option value="tarjeta">Tarjeta - Pago Completo</option>
                         <option value="transferencia">Transferencia - Pago Completo</option>
+                        <!-- OCULTO: Opciones de pago mixto y crédito deshabilitadas temporalmente
                         <option value="mixto">Mixto - Pago Parcial</option>
                         <option value="credito">A Crédito - Queda Debiendo Todo</option>
+                        -->
                     </select>
                 </div>
 
+                <!-- OCULTO: Sección de pago parcial deshabilitada temporalmente
                 <div id="partialPaymentSection" class="hidden">
                     <div class="form-group">
                         <label>Monto Pagado</label>
@@ -743,6 +798,7 @@
                         </div>
                     </div>
                 </div>
+                -->
                 
                 <div class="form-group">
                     <label>Notas (opcional)</label>
