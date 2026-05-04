@@ -2,9 +2,9 @@ const SUPABASE_URL = 'https://ylijiiexxgvlqkmcfill.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsaWppaWV4eGd2bHFrbWNmaWxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NTk4NDQsImV4cCI6MjA4NTAzNTg0NH0.9-L81hasC9-N1f7hXNJ15ZnVwbfRWDwfmx3qHGdEqM0';
 
 const EMAILJS_CONFIG = {
-    PUBLIC_KEY: 'ZI7DKnZbi_eAngHwA',  // Reemplazar con tu Public Key
-    SERVICE_ID: 'service_jd6le2g',           // Reemplazar con tu Service ID
-    TEMPLATE_ID: 'template_q5pky5m'          // Reemplazar con tu Template ID
+    PUBLIC_KEY: 'ZI7DKnZbi_eAngHwA',  
+    SERVICE_ID: 'service_jd6le2g',           
+    TEMPLATE_ID: 'template_q5pky5m'          
 };
 
 let supabaseClient;
