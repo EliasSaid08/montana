@@ -1,15 +1,51 @@
+ÍNDICE
+──────
+  1.  Descripción general
+  2.  Tecnologías y dependencias
+  3.  Estructura de archivos
+  4.  Arquitectura de módulos (patrón IIFE)
+  5.  Módulo: configuracion.js
+  6.  Módulo: autenticacion.js
+  7.  Módulo: categorias.js
+  8.  Módulo: productos.js
+  9.  Módulo: clientes.js          
+  10. Módulo: ventas.js           
+  11. Módulo: empleados.js
+  12. Módulo: reportes.js
+  13. Módulo: app.js (orquestador)
+  14. Base de datos Supabase — tablas
+  15. Interfaz — estructura visual
+  16. Sistema de roles
+  17. Pantalla de bienvenida
+  18. Flujo completo de una venta   ← actualizado
+  19. Limitaciones conocidas
+  20. Despliegue y requisitos
+
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 1. DESCRIPCIÓN GENERAL
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Montana Importados es un sistema de gestión de ventas (POS) desarrollado como
 aplicación web de una sola página (SPA) sin framework. Está orientado a un
-negocio de tecnología y permite administrar productos, clientes,
-ventas, empleados, deudas y reportes desde una interfaz atractiva.
+negocio de tecnología y permite administrar productos, clientes, ventas,
+empleados, deudas y reportes desde una interfaz atractiva.
 
 La aplicación corre completamente en el navegador. Utiliza Supabase como base
 de datos en la nube (PostgreSQL), EmailJS para envío de correos, y Chart.js
 para visualización de datos. No requiere servidor propio ni build process.
+
+Módulos funcionales actuales:
+  · Dashboard con KPIs, stock bajo, ventas recientes y tab de reportes
+  · POS con carrito, descuentos y múltiples métodos de pago (incl. crédito/mixto)
+  · Gestión de productos con subida de imágenes a Supabase Storage
+  · Gestión de categorías con conteo de productos asociados
+  · Gestión de clientes con ficha completa (compras + pagos + deuda)
+  · Módulo de deudas con registro de pagos parciales o totales
+  · Historial de ventas con detalle por venta
+  · Reportes gráficos con exportación a PDF
+  · Gestión de empleados y perfil personal
+  · Configuración de datos de la empresa
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -41,14 +77,14 @@ para visualización de datos. No requiere servidor propio ni build process.
   ├── index.html                → Estructura HTML completa + todos los modales
   ├── LOGO.jpeg                 → Logotipo (debe estar en la raíz)
   ├── css/
-  │   └── estilos.css           → Todos los estilos 
+  │   └── estilos.css           → Todos los estilos
   └── js/
       ├── configuracion.js      → Inicialización Supabase/EmailJS + utilidades
       ├── autenticacion.js      → Login, logout, recuperación de contraseña
       ├── categorias.js         → CRUD de categorías de productos
       ├── productos.js          → CRUD de productos + subida de imágenes
-      ├── clientes.js           → CRUD de clientes + deudas + registro de pagos
-      ├── ventas.js             → POS (punto de venta) + historial de ventas
+      ├── clientes.js           → CRUD de clientes + deudas + pagos + ficha de cliente
+      ├── ventas.js             → POS (punto de venta) + historial + métodos mixtos
       ├── empleados.js          → CRUD de empleados + perfil del usuario activo
       ├── reportes.js           → Gráficos + exportación de reportes PDF
       └── app.js                → Orquestador: navegación, dashboard, inicialización
@@ -87,6 +123,11 @@ Cada módulo funcional (salvo configuracion.js y app.js) sigue el patrón IIFE
 Esto logra encapsulamiento sin transpiladores: el estado interno de cada módulo
 (listas en memoria, flags) no es accesible desde fuera salvo por los métodos
 del return. Los módulos se comunican entre sí a través de window.NombreModulo.
+
+Módulos y sus globales expuestos:
+  window.Categorias   window.Productos   window.Clientes
+  window.Ventas       window.Empleados   window.Reportes
+  (Autenticacion no se expone en window, se usa solo desde app.js)
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -133,32 +174,35 @@ del return. Los módulos se comunican entre sí a través de window.NombreModulo
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   Responsabilidad:
-  Maneja el ciclo completo de autenticación: login, logout y recuperación de
-  contraseña mediante token temporal.
+  Maneja el ciclo completo de autenticación: login y recuperación de contraseña
+  mediante token temporal.
 
   Flujo de login (iniciarSesion):
-  1. Consulta la tabla "usuarios" en Supabase filtrando por username y activo=true
+  1. Consulta la tabla "usuarios" filtrando por username y activo=true
   2. Compara la contraseña en texto plano (campo password de la tabla)
   3. Devuelve el objeto usuario completo si es correcto, null si falla
-  4. Muestra notificación de error específica (usuario no encontrado / contraseña incorrecta)
+  4. Muestra notificación de error específica (usuario no encontrado /
+     contraseña incorrecta)
 
   NOTA DE SEGURIDAD: Las contraseñas se almacenan y comparan en texto plano.
-  Esto es funcional para entornos de desarrollo/interno pero NO es adecuado
-  para producción con datos sensibles. En producción se recomienda usar
-  bcrypt o el sistema de auth nativo de Supabase.
+  Esto es funcional para entornos de uso interno cerrado pero NO es adecuado
+  para producción con datos sensibles. En producción se recomienda usar bcrypt
+  o el sistema de auth nativo de Supabase.
 
   Recuperación de contraseña:
-  1. configurarRecuperacion() — inyecta el link "¿Olvidaste tu contraseña?" en el form
+  1. configurarRecuperacion() — inyecta el link "¿Olvidaste tu contraseña?"
+     en el formulario de login (solo si no existe ya, evita duplicados)
   2. El usuario ingresa su email → enviarEmailRecuperacion()
   3. Se genera un token aleatorio de 40 caracteres hex con window.crypto
   4. Se intenta guardar en la tabla "password_reset_tokens" (expira en 1 hora)
-     Si la tabla no existe, el token se guarda en memoria (tokensReset object)
-  5. Se construye un link con el token: dominio + #reset?token=TOKEN
+     Si la tabla no existe, el token se guarda en memoria (objeto tokensReset)
+  5. Se construye el link: dominio + #reset?token=TOKEN
   6. Se envía por EmailJS con nombre, email destino y link
-     Si EmailJS falla, se muestra un modal con el link copiable
-  7. verificarTokenURL() — se llama al cargar la página y detecta #reset?token=...
-     en la URL para mostrar automáticamente el modal de nueva contraseña
-  8. Al cambiar la contraseña se marca el token como used=true en Supabase
+     Si EmailJS falla, muestra un modal con el link copiable al portapapeles
+  7. verificarTokenURL() — detecta #reset?token=... en la URL al cargar la página
+     y abre automáticamente el modal de nueva contraseña
+  8. Al confirmar la nueva contraseña: UPDATE en usuarios, marca token como
+     used=true en Supabase y elimina de tokensReset en memoria
 
   API pública:
   · configurarRecuperacion() — agrega el link al formulario de login
@@ -178,21 +222,24 @@ del return. Los módulos se comunican entre sí a través de window.NombreModulo
   Campos: id, nombre, descripcion, activo
 
   Funciones:
-  · cargar()        — carga categorías activas en la variable privada lista[]
-                      (usado por Productos y Ventas al iniciarse)
-  · cargarSeccion() — carga todas las categorías + conteo de productos por categoría,
+  · cargar()        — carga todas las categorías en la variable privada lista[]
+                      (usado por Productos y app.js al iniciarse)
+  · cargarSeccion() — carga todas las categorías + conteo de productos por
+                      categoría (query separada sobre productos activos),
                       renderiza la tabla y configura búsqueda en tiempo real
+  · renderizarTabla(cats, conteo) — función interna que renderiza la tabla;
+                      separada de cargarSeccion para poder reutilizarla al filtrar
   · mostrarModal(id)— abre el modal de creación/edición con datos precargados
-  · guardar()       — INSERT o UPDATE según si hay id; maneja error 23505 (nombre duplicado)
+  · guardar()       — INSERT o UPDATE según si hay id; maneja error 23505 (nombre
+                      duplicado)
   · cambiarEstado(id, estadoActual) — toggle activo/inactivo con confirmación
   · eliminar(id, nombre, cantProductos) — bloquea si tiene productos asociados,
-                                          elimina con confirmación si no los tiene
+                      elimina físicamente con DELETE si no los tiene
   · getLista()      — devuelve la lista en memoria (acceso sin consulta)
 
   Lógica de eliminación segura:
   Si la categoría tiene productos asociados (cantProductos > 0), se rechaza la
-  eliminación y se sugiere desactivarla en su lugar. Solo se puede eliminar
-  categorías con 0 productos.
+  eliminación y se sugiere desactivarla. Solo se elimina si cantProductos === 0.
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -212,20 +259,21 @@ del return. Los módulos se comunican entre sí a través de window.NombreModulo
   Ruta de archivos: productos/producto_TIMESTAMP.ext
 
   Funciones:
-  · cargar()          — carga solo productos activos (usado por POS y Dashboard)
+  · cargar()          — carga solo productos activos con JOIN a categorias
+                        (usado por POS y Dashboard)
   · cargarTodos()     — carga activos e inactivos (para la tabla de gestión)
   · cargarSeccion(cats) — renderiza tabla con todos los productos, configura
-                          búsqueda y botón de agregar
-  · mostrarModal(id)  — abre modal; si id=null es creación, si tiene id es edición.
-                        En creación llama a _proximoCodigo() para autocompletar el código.
-  · guardar()         — INSERT o UPDATE según productId hidden input
-  · cambiarEstado()   — toggle activo/inactivo (inhabilitar sin eliminar)
+                          búsqueda en tiempo real y botón de agregar
+  · mostrarModal(id)  — abre modal; si id=null es creación (llama a
+                        _proximoCodigo para sugerir código), si tiene id edición
+  · guardar()         — INSERT o UPDATE según productId en input hidden
+  · cambiarEstado()   — toggle activo/inactivo (soft disable sin eliminar)
   · eliminar()        — DELETE permanente; puede fallar si hay ventas relacionadas
                         (restricción de FK en Supabase)
   · getLista()        — devuelve productos activos en memoria
 
   Sistema de upload de imágenes (_configurarUploader, _procesarImagen, _subirImagen):
-  1. El área de upload acepta click y drag & drop
+  1. El área acepta click y drag & drop
   2. Valida tipo (image/*) y tamaño máximo 2MB
   3. Muestra preview local inmediato con URL.createObjectURL
   4. Sube el archivo a Supabase Storage con nombre único (timestamp)
@@ -239,97 +287,218 @@ del return. Los módulos se comunican entre sí a través de window.NombreModulo
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-9. MÓDULO: clientes.js
+9. MÓDULO: clientes.js  [actualizado v1.1]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   Responsabilidad:
-  CRUD de clientes, gestión de deudas y registro de pagos.
+  CRUD de clientes, gestión de deudas, registro de pagos y ficha completa
+  por cliente con historial de compras y pagos.
 
   Tablas Supabase:
   · "clientes" — id, nombre, telefono, email, direccion, deuda_total, activo
   · "pagos"    — id, cliente_id, monto, fecha, metodo_pago, referencia, notas
 
-  Funciones principales:
-  · cargar()        — carga clientes activos en memoria (usado por POS para el selector)
-  · cargarSeccion() — renderiza tabla de clientes con búsqueda en tiempo real
-  · mostrarModal(id)— creación/edición de cliente
-  · guardar()       — INSERT o UPDATE
-  · eliminar()      — soft delete (activo=false, no DELETE físico)
-  · getLista()      — devuelve clientes en memoria
+  API pública completa:
+  · cargar()              — carga clientes activos en memoria
+  · cargarSeccion()       — renderiza tabla de clientes con búsqueda en tiempo real
+  · mostrarModal(id)      — creación/edición de cliente
+  · guardar()             — INSERT o UPDATE
+  · eliminar(id, nombre)  — soft delete (activo=false)
+  · cargarDeudas()        — renderiza sección de deudas (ver abajo)
+  · mostrarModalPago()    — abre formulario de registro de pago
+  · verHistorialDeuda()   — historial de pagos en modal dinámico
+  · verFichaCliente(id)   — ficha completa del cliente (ver abajo) [NUEVO]
+  · getLista()            — devuelve clientes en memoria
 
-  Gestión de deudas (cargarDeudas):
-  · Consulta clientes con deuda_total > 0 ordenados por deuda descendente
-  · Calcula totales agregados (suma total de deudas, cantidad de deudores)
+  ── Tabla de clientes (cargarSeccion) ────────────────────────────────────────
+
+  Cada fila ahora muestra tres botones de acción:
+  ┌──────────────────┬───────────────────────────────────────────────────────┐
+  │ Botón            │ Acción                                                │
+  ├──────────────────┼───────────────────────────────────────────────────────┤
+  │ fa-user-circle   │ Abre la Ficha Completa del cliente [NUEVO]            │
+  │ fa-edit          │ Abre el modal de edición de datos del cliente         │
+  │ fa-trash         │ Solicita confirmación y hace soft delete              │
+  └──────────────────┴───────────────────────────────────────────────────────┘
+
+  ── Ficha Completa del Cliente (verFichaCliente) [NUEVO] ─────────────────────
+
+  Función asíncrona que genera un modal dinámico completo con toda la
+  información histórica del cliente. Se crea e inyecta en el DOM al llamarla
+  y se elimina al cerrarse (#fichaClienteModal).
+
+  Flujo de carga:
+  1. Busca el cliente en la lista en memoria (sin consulta adicional)
+  2. Construye el modal con un loader spinner mientras carga los datos
+  3. Ejecuta dos consultas en paralelo con Promise.all:
+     · ventas: SELECT con JOIN a usuarios, filtrado por cliente_id,
+               ORDER BY fecha DESC, LIMIT 50
+     · pagos:  SELECT *, filtrado por cliente_id,
+               ORDER BY fecha DESC, LIMIT 50
+  4. Calcula KPIs en memoria (sin consultas adicionales):
+     · totalCompras  = suma de v.total de todas las ventas
+     · totalPagado   = suma de p.monto de todos los pagos
+     · deudaActual   = cliente.deuda_total (campo desnormalizado en DB)
+     · cantVentas    = ventas.length
+     · cantPagos     = pagos.length
+  5. Renderiza el contenido del modal
+
+  Estructura del modal:
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ HEADER (sticky)                                                         │
+  │   Avatar circular con ícono · Nombre · Teléfono · Email · [X]          │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │ KPIs (grid auto-fit, mínimo 160px por columna)                          │
+  │   [Total Comprado]  [Total Pagado]  [Deuda Actual]  [N.º de Compras]   │
+  │   Color de "Deuda Actual": rojo si > 0, verde si = 0                   │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │ TABS                                                                    │
+  │   [🛒 Compras (N)]  [💵 Pagos (N)]                                     │
+  │   La lógica de switching está en window.fichaTabSwitch (temporal)       │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │ Tab COMPRAS (activo por defecto)                                        │
+  │   Tabla: Código · Fecha · Vendedor · Método · Total · Estado · [ojo]   │
+  │   Si la venta tiene notas → fila secundaria con comentario en cursiva  │
+  │   Botón ojo: cierra el modal y abre Ventas.verDetalle(id)              │
+  │                                                                         │
+  │ Tab PAGOS                                                               │
+  │   Tabla: Fecha · Monto (verde) · Método · Referencia · Notas           │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │ FOOTER (sticky)                                                         │
+  │   [Cerrar]  [$ Registrar Pago]  ← solo si deuda_total > 0             │
+  │   "Registrar Pago" cierra el modal y abre mostrarModalPago()           │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  Nota sobre window.fichaTabSwitch:
+  La función de switching de tabs se define en window (scope global) al
+  renderizar el modal. Esto es necesario porque los onclick en el HTML
+  generado dinámicamente no tienen acceso al closure del módulo IIFE.
+  La función se sobreescribe cada vez que se abre una ficha y queda huérfana
+  al cerrarse el modal (efecto colateral mínimo).
+
+  ── Gestión de deudas (cargarDeudas) ─────────────────────────────────────
+
+  · Consulta clientes con deuda_total > 0 y activo=true, ordenados por
+    deuda_total DESC
+  · Calcula el total agregado de deudas y la cantidad de deudores
   · Muestra la última venta de cada deudor via JOIN con ventas
   · Búsqueda en tiempo real sobre la tabla de deudores
 
-  Registro de pagos (mostrarModalPago, registrarPago):
-  1. Se abre un modal con el nombre del cliente y su deuda actual
-  2. El usuario ingresa: monto, método de pago, referencia opcional, notas
+  ── Registro de pagos (mostrarModalPago, registrarPago) ──────────────────
+
+  1. Modal con nombre del cliente y deuda actual prellenos
+  2. Campos: monto (max = deuda actual), método de pago, referencia, notas
   3. Al confirmar:
-     a. INSERT en tabla "pagos" con todos los datos + timestamp actual
-     b. Consulta deuda_total actual del cliente
+     a. INSERT en tabla "pagos" con timestamp actual (ahora())
+     b. SELECT deuda_total actual del cliente (para evitar condición de carrera)
      c. UPDATE clientes SET deuda_total = MAX(0, deuda_actual - monto_pagado)
   4. Si algún paso falla se muestra error y no se actualiza el estado
 
-  Historial de deuda (verHistorialDeuda):
-  Consulta los últimos 10 pagos del cliente y los muestra en un alert nativo
-  con formato fecha — monto (método). Funcionalidad básica extensible.
+  ── Historial de pagos (verHistorialDeuda) ───────────────────────────────
+
+  Genera un modal dinámico (#historialPagosModal) con:
+  · Tres tarjetas de resumen: total pagado, deuda actual, cantidad de pagos
+  · Tabla de pagos con fecha, monto, método, referencia y notas
+  · Últimos 20 pagos ordenados DESC
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-10. MÓDULO: ventas.js
+10. MÓDULO: ventas.js  [actualizado v1.1]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   Responsabilidad:
-  Punto de Venta (POS) completo: grilla de productos, carrito, checkout y
-  consulta del historial de ventas con detalle por venta.
+  Punto de Venta (POS) completo: grilla de productos, carrito, checkout con
+  soporte de pago mixto/crédito, e historial de ventas con detalle.
 
   Tablas Supabase:
   · "ventas"        — id, codigo, fecha, cliente_id, vendedor_id, subtotal,
                       descuento, total, estado, metodo_pago, notas
-  · "venta_detalles"— id, venta_id, producto_id, cantidad, precio_unitario, subtotal
+  · "venta_detalles"— id, venta_id, producto_id, cantidad, precio_unitario,
+                      subtotal
 
   Estado interno:
   · carrito[]       — array de { id, nombre, precio, stock, cantidad }
   · usuarioActual   — referencia al usuario logueado (setUsuario lo asigna)
 
-  POS — cargarPOS():
-  1. Construye la barra de filtros por categoría (_construirFiltrosCategorias)
-     Agrupa categorías únicas de la lista de productos en memoria
-  2. Renderiza la grilla de productos (_renderizarGrilla)
-     Filtra por búsqueda de texto y categoría activa simultáneamente
-     Muestra imagen del producto o placeholder con ícono si no tiene
-  3. Configura el input de búsqueda con filtrado en tiempo real
-  4. El botón "Limpiar" vacía el carrito con confirmación
+  ── POS — cargarPOS() ────────────────────────────────────────────────────
 
-  Carrito:
-  · _agregarAlCarrito(producto) — valida stock disponible antes de agregar
-    Si el producto ya está en el carrito, incrementa cantidad (respetando stock)
-  · cambiarCantidad(id, delta) — +1 o -1; si llega a 0 llama a quitarDelCarrito
-  · quitarDelCarrito(id) — filter del array, re-renderiza
-  · _actualizarCarrito() — re-renderiza items, calcula subtotal, aplica descuento,
-    habilita/deshabilita el botón de checkout
+  1. Construye barra de filtros por categoría (_construirFiltrosCategorias)
+     Agrupa categorías únicas de la lista de productos en memoria, ordena
+     alfabéticamente y renderiza botones con data-cat
+  2. Renderiza grilla de productos (_renderizarGrilla)
+     Filtra simultáneamente por texto de búsqueda y categoría activa
+     Muestra imagen del producto o placeholder con ícono si no tiene URL
+  3. Configura input de búsqueda con filtrado en tiempo real
+  4. Botón "Vaciar carrito" pide confirmación antes de limpiar
 
-  Checkout — procesarVenta():
-  Transacción en 3 pasos (sin transacción atómica real, steps secuenciales):
-  1. INSERT en "ventas" con código único "V-{timestamp}", fecha, cliente opcional,
-     vendedor, subtotal, descuento, total, método de pago
+  ── Carrito ──────────────────────────────────────────────────────────────
+
+  · _agregarAlCarrito(producto) — valida stock disponible antes de agregar.
+    Si el producto ya está en el carrito, incrementa cantidad (max = stock)
+  · cambiarCantidad(id, delta)  — +1 o -1; si llega a 0 llama quitarDelCarrito
+  · quitarDelCarrito(id)        — filter del array, re-renderiza
+  · _actualizarCarrito()        — re-renderiza items, calcula subtotal,
+    aplica descuento, habilita/deshabilita botón de checkout
+
+  ── Checkout — Modal y Métodos de Pago ───────────────────────────────────
+
+  El modal de checkout tiene un campo "paymentMode" que controla qué campos
+  adicionales se muestran:
+
+  · simple   — efectivo, tarjeta o transferencia. El total se paga completo.
+               No genera deuda.
+
+  · mixto    — requiere cliente. Se muestran campos para desglosar cuánto
+               se paga ahora y con qué método. El remanente se registra como
+               deuda. El campo "parcialMonto" no puede superar el total.
+               Se genera una nota automática con el desglose:
+               "Efectivo: $X | Transf: $Y | Crédito: $Z"
+
+  · credito  — requiere cliente. La totalidad del monto queda como deuda.
+               El método_pago se registra como 'credito' en la tabla ventas.
+
+  Validaciones previas a procesarVenta():
+  · Si modo mixto o crédito sin cliente seleccionado → error y corte
+  · Si monto parcial > total → error y corte
+
+  ── procesarVenta() — Pasos de escritura ─────────────────────────────────
+
+  Transacción en pasos secuenciales (sin atomicidad real):
+
+  1. INSERT en "ventas" con:
+     · codigo: 'V-' + Date.now() (único por timestamp)
+     · metodo_pago: valor calculado según modo
+     · notas: notas del usuario + notas generadas por modo mixto (concatenadas)
+     · cliente_id: null si es venta general
+
   2. INSERT masivo en "venta_detalles" con todos los items del carrito
-  3. UPDATE stock de cada producto (stock - cantidad vendida)
-  Si cualquier paso falla se muestra error; los datos pueden quedar inconsistentes
-  (limitación de no usar transacciones reales en Supabase desde el cliente JS).
 
-  Post-venta: limpia carrito, resetea descuento, recarga productos y clientes.
+  3. UPDATE stock de cada producto (stock - cantidad vendida), uno por uno
+     en loop secuencial (no en paralelo, para evitar condiciones de carrera)
 
-  Historial — cargarHistorial():
+  4. Si deudaGenerada > 0 y hay cliente:
+     · SELECT deuda_total actual del cliente
+     · UPDATE clientes SET deuda_total = deuda_actual + deudaGenerada
+
+  Post-venta: limpia carrito, resetea descuento a 0, recarga Productos y
+  Clientes en memoria (para reflejar nuevo stock y nueva deuda).
+
+  ── Historial — cargarHistorial() ────────────────────────────────────────
+
   · Carga las últimas 50 ventas con JOIN a clientes y usuarios
   · Búsqueda en tiempo real sobre la tabla renderizada
 
-  Detalle de venta — verDetalle(id):
-  · Carga en paralelo (Promise.all) los detalles de la venta y la cabecera
-  · Construye un modal dinámico con tabla de productos, precios y total
-  · El modal se cierra al hacer click en el overlay o en el botón
+  ── Detalle de venta — verDetalle(id) ────────────────────────────────────
+
+  · Carga en paralelo (Promise.all): detalles de la venta + cabecera con
+    JOIN a clientes y usuarios
+  · Modal dinámico (#saleDetailModal) con tabla de productos, descuento
+    (si aplica) y total. Se cierra al hacer click en overlay o botón.
+
+  API pública:
+  · setUsuario(u)       · cargarPOS()        · cambiarCantidad(id, delta)
+  · quitarDelCarrito(id)· mostrarModalCheckout()
+  · cargarHistorial()   · verDetalle(id)
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -343,22 +512,29 @@ del return. Los módulos se comunican entre sí a través de window.NombreModulo
   Campos: id, username, nombre, email, password, role (admin/empleado), activo
 
   Funciones:
-  · setUsuario(usuario)  — recibe el usuario logueado desde app.js
+  · setUsuario(usuario)  — recibe el usuario logueado desde app.js; lo usa para
+                           proteger al usuario activo de desactivarse a sí mismo
   · cargarSeccion()      — carga y renderiza todos los usuarios; el usuario activo
-                           no puede desactivarse a sí mismo (su botón no aparece)
-  · mostrarModal(id)     — en edición cambia el label de contraseña a "opcional"
-                           y quita el required del campo password
+                           no puede ver el botón de activar/desactivar en su propia
+                           fila (condición: emp.id !== usuarioActual?.id)
+  · mostrarModal(id)     — en edición carga datos del empleado desde Supabase,
+                           cambia el label de contraseña a "opcional" y quita
+                           el atributo required del campo password
   · guardar()            — INSERT para nuevos (contraseña obligatoria)
                            UPDATE para existentes (contraseña solo si se ingresa algo)
                            Maneja error 23505 (username duplicado)
-  · cambiarEstado()      — toggle activo/inactivo con confirmación
+  · cambiarEstado(id, nuevoEstado) — toggle activo/inactivo con confirmación
 
   Perfil (cargarPerfil, actualizarPerfil, cambiarContrasena):
   · cargarPerfil()       — precarga nombre, email y rol del usuario activo en el form
-  · actualizarPerfil()   — UPDATE nombre y email; actualiza también el objeto en memoria
-                           y el texto del header (currentUser) sin recargar la página
-  · cambiarContrasena()  — valida contraseña actual comparando con usuarioActual.password
-                           luego UPDATE en Supabase y actualiza el objeto en memoria
+  · actualizarPerfil()   — UPDATE nombre y email; actualiza también el objeto en
+                           memoria y el texto del header (currentUser) sin recargar
+  · cambiarContrasena()  — valida contraseña actual comparando con
+                           usuarioActual.password (texto plano), luego UPDATE en
+                           Supabase y actualiza el objeto en memoria
+
+  API pública:
+  · setUsuario · cargarSeccion · mostrarModal · cambiarEstado · cargarPerfil
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -385,7 +561,7 @@ del return. Los módulos se comunican entre sí a través de window.NombreModulo
 
   Exportación:
   · exportarVentas():
-    1. Abre _selectorFechas() — modal con inputs de fecha inicio/fin y rangos rápidos
+    1. Abre _selectorFechas() — modal con inputs fecha inicio/fin y rangos rápidos
        (hoy, ayer, semana, mes, trimestre)
     2. Consulta ventas en el rango con JOIN a clientes y usuarios
     3. Calcula totales por método de pago
@@ -393,7 +569,7 @@ del return. Los módulos se comunican entre sí a través de window.NombreModulo
     5. Muestra en mostrarVistaPrevia() con opciones de imprimir o descargar PDF
 
   · exportarStockBajo():
-    Similar pero sin selector de fechas; filtra productos con stock <= stock_minimo (o 5)
+    Similar pero sin selector de fechas; filtra productos con stock <= stock_minimo
 
   Vista previa y exportación (mostrarVistaPrevia):
   · Crea un modal con el HTML del reporte renderizado en un div con fondo blanco
@@ -423,18 +599,12 @@ del return. Los módulos se comunican entre sí a través de window.NombreModulo
 
   Flujo post-login (_manejarLogin):
   1. Llama a Autenticacion.iniciarSesion() — si devuelve null, se detiene
-  2. Guarda el usuario en usuarioActual y lo pasa a Ventas y Empleados (setUsuario)
+  2. Guarda el usuario en usuarioActual y lo pasa a Ventas y Empleados
   3. Actualiza header con nombre y rol del usuario
   4. Muestra/oculta items de menú con clase admin-only según el rol
   5. Muestra la pantalla de bienvenida neón (_mostrarBienvenida)
   6. Carga datos iniciales en paralelo: categorías, productos, clientes
   7. Redirige según rol: admin → dashboard, empleado → POS
-
-  Pantalla de bienvenida (_mostrarBienvenida):
-  · Inyecta el nombre del usuario en #welcomeUserName
-  · Remueve la clase hidden para mostrar la pantalla
-  · Timer de 2600ms → agrega clase fade-out (CSS transition opacity 0.7s)
-  · Timer de 650ms más → agrega hidden para sacarla del DOM visual
 
   Navegación (_navegarSeccion):
   · Activa el ítem de menú clickeado (clase active)
@@ -455,28 +625,43 @@ del return. Los módulos se comunican entre sí a través de window.NombreModulo
   │ sales       │ Ventas.cargarHistorial()               │
   │ employees   │ Empleados.cargarSeccion()              │
   │ profile     │ Empleados.cargarPerfil()               │
-  │ reports     │ Reportes.cargar()                      │
   │ config      │ _cargarConfiguracion() — función local │
   └─────────────┴────────────────────────────────────────┘
 
   Dashboard (cargarDashboard):
-  Consultas en paralelo y secuenciales:
+  Consultas mixtas (memoria + Supabase):
   · Ventas de hoy: SUM total filtrado por fecha >= hoy (zona Argentina)
-  · Total productos: longitud de Productos.getLista()
+  · Total productos: longitud de Productos.getLista() (memoria)
   · Stock bajo: filtro stock <= stock_minimo sobre la lista en memoria
-  · Clientes: longitud de Clientes.getLista()
+  · Clientes: longitud de Clientes.getLista() (memoria)
   · Top producto: reduce sobre venta_detalles agrupando por nombre de producto
   · Últimas 5 ventas: JOIN a clientes y usuarios, ORDER BY fecha DESC
-  · Tabla de stock bajo: renderiza con badge CRÍTICO (≤3) o BAJO (≤minimo)
-  · Mini gráficas: ventas 7 días (línea) + categorías (dona) con Chart.js
+  · Tabla de stock bajo: badge CRÍTICO (stock <= 3) o BAJO (stock <= minimo)
 
-  Las tarjetas del dashboard son clickeables y navegan a la sección relacionada.
-  La tarjeta de stock bajo abre un modal detallado en lugar de navegar.
+  Las tarjetas del dashboard son clickeables:
+  · Ventas de Hoy    → navega a sección "sales"
+  · Total Productos  → navega a sección "products"
+  · Total Clientes   → navega a sección "customers"
+  · Top Producto     → navega a sección "reports" y carga Reportes.cargar()
+  · Stock Bajo       → abre modal detallado (_mostrarModalStockBajo) con tabla
+                       completa de todos los productos con stock bajo o crítico
+
+  Tabs del Dashboard (_inicializarTabsDashboard):
+  El dashboard tiene dos tabs: "overview" (vista principal) y "reports"
+  (acceso directo a reportes). La lógica de tab se inicializa una sola vez
+  usando dataset.bound = '1' para evitar registrar listeners duplicados
+  en cada visita al dashboard.
+
+  Modal de Stock Bajo (_mostrarModalStockBajo):
+  Modal dinámico (#lowStockDetailModal) con tabla de productos en stock bajo.
+  Columnas: Código, Producto, Categoría, Stock Actual, Stock Mínimo, Estado.
+  Se destruye y recrea en cada apertura (remove + createElement).
 
   Configuración (_cargarConfiguracion):
   · Lee tabla "configuracion" (clave/valor) y precarga campos de empresa
-  · Muestra tabla de usuarios del sistema
-  · Al guardar hace UPDATE por cada clave modificada
+  · Muestra tabla de usuarios del sistema (solo lectura)
+  · Al guardar: UPDATE por cada clave modificada (empresa_nombre, telefono,
+    dirección) de forma secuencial con for...of
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -489,7 +674,7 @@ del return. Los módulos se comunican entre sí a través de window.NombreModulo
   username    text UNIQUE NOT NULL
   nombre      text NOT NULL
   email       text
-  password    text NOT NULL
+  password    text NOT NULL            ← texto plano (ver nota de seguridad)
   role        text  ('admin' | 'empleado')
   activo      boolean DEFAULT true
 
@@ -521,13 +706,14 @@ del return. Los módulos se comunican entre sí a través de window.NombreModulo
   telefono    text
   email       text
   direccion   text
-  deuda_total numeric DEFAULT 0
+  deuda_total numeric DEFAULT 0       ← campo desnormalizado, se actualiza
+                                         en cada venta a crédito/mixta y pago
   activo      boolean DEFAULT true
 
   ventas
   ──────
   id          bigint PK autoincrement
-  codigo      text UNIQUE
+  codigo      text UNIQUE             ← formato 'V-{timestamp}'
   fecha       timestamptz NOT NULL
   cliente_id  bigint FK → clientes.id (nullable — ventas generales)
   vendedor_id bigint FK → usuarios.id
@@ -535,8 +721,9 @@ del return. Los módulos se comunican entre sí a través de window.NombreModulo
   descuento   numeric DEFAULT 0
   total       numeric NOT NULL
   estado      text ('completada' | 'anulada')
-  metodo_pago text ('efectivo' | 'tarjeta' | 'transferencia' | 'credito')
-  notas       text
+  metodo_pago text ('efectivo' | 'tarjeta' | 'transferencia' | 'credito' |
+                    'mixto')          ← 'mixto' agregado en v1.1
+  notas       text                   ← puede incluir desglose de pago mixto
 
   venta_detalles
   ──────────────
@@ -557,8 +744,8 @@ del return. Los módulos se comunican entre sí a través de window.NombreModulo
   referencia  text
   notas       text
 
-  password_reset_tokens (opcional)
-  ─────────────────────────────────
+  password_reset_tokens (opcional — puede no existir)
+  ─────────────────────────────────────────────────────
   id          bigint PK autoincrement
   user_id     bigint FK → usuarios.id
   token       text UNIQUE NOT NULL
@@ -570,10 +757,18 @@ del return. Los módulos se comunican entre sí a través de window.NombreModulo
   id          bigint PK autoincrement
   clave       text UNIQUE NOT NULL
   valor       text
-  (claves usadas: empresa_nombre, empresa_telefono, empresa_direccion)
+  Claves usadas: empresa_nombre, empresa_telefono, empresa_direccion
 
   Storage:
   Bucket "imagenes" — público, rutas: productos/producto_TIMESTAMP.ext
+
+  Relaciones relevantes:
+  ventas.cliente_id  → clientes.id  (nullable)
+  ventas.vendedor_id → usuarios.id
+  venta_detalles.venta_id   → ventas.id
+  venta_detalles.producto_id → productos.id
+  pagos.cliente_id  → clientes.id
+  productos.categoria_id → categorias.id
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -606,17 +801,34 @@ del return. Los módulos se comunican entre sí a través de window.NombreModulo
   └──────────┴───────────────────────────────────────┘
 
   Responsive: en viewport < 1024px el sidebar se oculta y aparece con el
-  botón hamburguesa; se cierra al tocar fuera o navegar.
+  botón hamburguesa; se cierra al tocar fuera o al navegar.
 
   Pantallas especiales:
   · #loginScreen    — visible al inicio, oculta tras login exitoso
   · #app            — oculta al inicio, visible tras login
-  · #welcomeScreen  — oculta al inicio, aparece tras login por ~2.6s
+  · #welcomeScreen  — oculta al inicio, aparece tras login por ~2.6s con fade out
 
-  Modales:
-  Todos los modales están en el HTML desde el inicio con clase "hidden".
-  Se muestran/ocultan removiendo/agregando esa clase. Los botones .close-modal
-  y el overlay configuran el cierre. Los formularios se resetean al abrir.
+  Modales estáticos (en el HTML desde el inicio, clase "hidden"):
+  · #customerModal     — creación/edición de clientes
+  · #paymentModal      — registro de pagos de deuda
+  · #checkoutModal     — finalización de venta (POS)
+  · #productModal      — creación/edición de productos
+  · #categoryModal     — creación/edición de categorías
+  · #employeeModal     — creación/edición de empleados
+
+  Modales dinámicos (creados y destruidos en cada uso):
+  · #fichaClienteModal      — ficha completa de cliente [NUEVO v1.1]
+  · #historialPagosModal    — historial de pagos de un cliente
+  · #saleDetailModal        — detalle de una venta del historial
+  · #lowStockDetailModal    — detalle de productos con stock bajo
+  · #modalRecuperar         — formulario de recuperación de contraseña
+  · #modalNuevaContrasena   — formulario de nueva contraseña (desde token)
+
+  Convención de cierre de modales:
+  Los botones con clase .close-modal asignan su onclick al cierre del modal
+  al momento de abrir el modal (no están hardcodeados en el HTML). Esto
+  garantiza que el cierre apunte siempre al modal correcto. El overlay
+  (click en el fondo oscuro) también cierra el modal.
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -631,11 +843,11 @@ del return. Los módulos se comunican entre sí a través de window.NombreModulo
   ├─────────────────────────┼───────┼──────────┤
   │ Dashboard               │  ✓    │    ✗     │
   │ Punto de Venta (POS)    │  ✓    │    ✓     │
-  │ Gestión de Productos    │  ✓    │    ✓     │
+  │ Gestión de Productos    │  ✓    │    ✗     │
   │ Gestión de Categorías   │  ✓    │    ✗     │
-  │ Gestión de Clientes     │  ✓    │    ✓     │
+  │ Gestión de Clientes     │  ✓    │    ✗     │
   │ Cuentas por Cobrar      │  ✓    │    ✗     │
-  │ Historial de Ventas     │  ✓    │    ✓     │
+  │ Historial de Ventas     │  ✓    │    ✗     │
   │ Mi Perfil               │  ✓    │    ✓     │
   │ Gestión de Empleados    │  ✓    │    ✗     │
   │ Reportes                │  ✓    │    ✗     │
@@ -645,6 +857,10 @@ del return. Los módulos se comunican entre sí a través de window.NombreModulo
   La restricción se aplica ocultando los elementos del menú con clase
   admin-only en el HTML. No hay restricción a nivel de API (Supabase RLS);
   la seguridad es solo visual/frontend.
+
+  Al iniciar sesión:
+  · admin    → redirige a Dashboard
+  · empleado → redirige directamente al POS
 
   Usuarios por defecto del sistema:
   · admin   / admin123  — rol Administrador
@@ -673,15 +889,17 @@ del return. Los módulos se comunican entre sí a través de window.NombreModulo
   1. _mostrarBienvenida(nombre) en app.js inyecta el nombre
   2. Remueve clase 'hidden' → aparece la pantalla
   3. setTimeout 2600ms → agrega clase 'fade-out' (opacity: 0, transition 0.7s)
-  4. setTimeout 650ms más → agrega 'hidden' → vuelve display:none
+  4. setTimeout 650ms más → agrega 'hidden' → vuelve a display:none
   5. La app ya estaba cargada en el fondo durante la animación
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-18. FLUJO COMPLETO DE UNA VENTA
+18. FLUJO COMPLETO DE UNA VENTA  [actualizado v1.1]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  1. El empleado navega a "Punto de Venta"
+  Flujo estándar (pago simple):
+  ─────────────────────────────
+  1. El usuario navega a "Punto de Venta"
   2. La grilla muestra productos activos con stock > 0 (de memoria, sin consulta)
   3. Puede filtrar por categoría (barra superior) o buscar por nombre/código
   4. Al hacer click en un producto → se agrega al carrito
@@ -692,14 +910,36 @@ del return. Los módulos se comunican entre sí a través de window.NombreModulo
   7. Hace click en "Finalizar Venta" → se abre el modal de checkout
   8. En el modal selecciona:
      · Cliente (opcional — "Venta General" si no hay cliente)
-     · Método de pago (efectivo / tarjeta / transferencia)
+     · Método de pago: efectivo / tarjeta / transferencia / crédito / mixto
      · Notas opcionales
-  9. Confirma → procesarVenta():
-     · INSERT en ventas
-     · INSERT masivo en venta_detalles
-     · UPDATE stock de cada producto vendido
+  9. Hace click en "Confirmar Venta" → procesarVenta():
+     a. INSERT en ventas
+     b. INSERT masivo en venta_detalles
+     c. UPDATE stock de cada producto vendido (secuencial)
   10. Notificación de éxito con el código de venta generado
-  11. Carrito se limpia, stock en memoria se actualiza
+  11. Carrito se limpia, stock y clientes en memoria se actualizan
+
+  Flujo con pago mixto (pago parcial + deuda):
+  ─────────────────────────────────────────────
+  1–7. Igual al flujo estándar
+  8. En el modal, el usuario selecciona modo "Mixto" y debe seleccionar cliente
+  9. Se muestran campos adicionales:
+     · Monto pagado ahora
+     · Método del pago parcial
+  10. El sistema calcula: deudaGenerada = total - montoPagado
+  11. Se genera nota automática: "Efectivo: $X | Transf: $Y | Crédito: $Z"
+  12. Al confirmar → procesarVenta():
+      a–c. Igual al flujo estándar
+      d. UPDATE clientes SET deuda_total += deudaGenerada
+  13. Notificación de éxito: "Venta completada: V-XXX · Deuda registrada: $YYY"
+
+  Flujo a crédito total:
+  ──────────────────────
+  1–7. Igual al flujo estándar
+  8. El usuario selecciona modo "Crédito" y debe seleccionar cliente
+  9. Al confirmar: deudaGenerada = total completo
+     UPDATE clientes SET deuda_total += total
+  10. metodo_pago se registra como 'credito' en la tabla ventas
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -707,14 +947,37 @@ del return. Los módulos se comunican entre sí a través de window.NombreModulo
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   · Contraseñas en texto plano — sin hash. Aceptable para uso interno cerrado.
+
   · Sin Row Level Security (RLS) en Supabase — cualquiera con la anon key
     puede leer/escribir todas las tablas desde el cliente.
+
   · Ventas no son atómicas — si falla el update de stock, la venta ya fue
     insertada. Requeriría una Edge Function en Supabase para ser transaccional.
-  · Historial de deuda usa alert() nativo — limitado, no exportable.
-  · Sin paginación real en tablas — carga máximo 50 registros en ventas,
-    sin límite en otras tablas (puede ser lento con muchos datos).
+
+  · El campo deuda_total en clientes es desnormalizado — se actualiza
+    manualmente en cada venta a crédito/mixta y en cada pago. Si una
+    operación falla a mitad del proceso puede quedar inconsistente con la
+    suma real de ventas y pagos.
+
+  · Estado de ventas siempre "completada" — el campo "estado" existe en la
+    tabla pero no hay lógica de anulación en el frontend. Las ventas no
+    pueden cancelarse desde la interfaz.
+
+  · La columna "estado" del historial de ventas refleja el estado del
+    procesamiento de la venta (completada/anulada), NO el estado del cobro.
+    Una venta "completada" puede tener deuda pendiente si fue a crédito.
+
+  · Sin paginación real en tablas — ventas carga máximo 50 registros,
+    pagos historial carga máximo 20/50 registros. Sin paginación para
+    otros módulos (puede ser lento con grandes volúmenes).
+
+  · window.fichaTabSwitch es una función global temporal — se sobreescribe
+    con cada apertura de la ficha de cliente. No causa problemas en uso
+    normal, pero puede generar comportamiento inesperado si hubiera dos
+    fichas abiertas simultáneamente (lo cual el HTML no permite).
+
   · Sin modo offline — requiere conexión a internet constante (Supabase + CDNs).
+
   · La anon key de Supabase está expuesta en el código fuente del cliente.
     Es una limitación inherente a toda app frontend sin backend propio.
 
@@ -743,3 +1006,16 @@ del return. Los módulos se comunican entre sí a través de window.NombreModulo
   No hay archivo .env ni proceso de build. Todos los cambios son directos en
   los archivos JS.
 
+  Checklist para nuevo despliegue:
+  □ Reemplazar credenciales en configuracion.js
+  □ Crear las tablas en Supabase (ver sección 14)
+  □ Crear bucket "imagenes" en Supabase Storage como público
+  □ Crear tabla password_reset_tokens (opcional, para recuperación de contraseña)
+  □ Insertar al menos un usuario administrador en la tabla "usuarios"
+  □ Insertar claves en tabla "configuracion":
+      empresa_nombre, empresa_telefono, empresa_direccion
+  □ Configurar plantilla de EmailJS para el template de recuperación
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Última actualización: Mayo 2026 · v1.1
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
