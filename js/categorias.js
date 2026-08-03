@@ -2,6 +2,8 @@ const Categorias = (() => {
     const { supabase, mostrarNotificacion } = window.appConfig;
 
     let lista = [];
+    let todasLasCategorias = [];
+    let conteoProductos = {};
 
     async function cargar() {
         if (!supabase) return;
@@ -19,27 +21,74 @@ const Categorias = (() => {
             const { data: cats, error } = await supabase.from('categorias').select('*').order('nombre');
             if (error) throw error;
             lista = cats || [];
+            todasLasCategorias = cats || [];
         } catch { return; }
 
-        let conteo = {};
+        conteoProductos = {};
         try {
             const { data: prods } = await supabase.from('productos').select('categoria_id').eq('activo', true);
             (prods || []).forEach(p => {
-                if (p.categoria_id) conteo[p.categoria_id] = (conteo[p.categoria_id] || 0) + 1;
+                if (p.categoria_id) conteoProductos[p.categoria_id] = (conteoProductos[p.categoria_id] || 0) + 1;
             });
         } catch { /* ignorar */ }
 
-        renderizarTabla(lista, conteo);
+        _construirFiltroEstado();
+        _aplicarFiltroEstado();
 
-        document.getElementById('searchCategories').oninput = (e) => {
-            const q = e.target.value.toLowerCase();
-            const filtradas = lista.filter(c =>
-                c.nombre.toLowerCase().includes(q) || (c.descripcion || '').toLowerCase().includes(q)
-            );
-            renderizarTabla(filtradas, conteo);
-        };
-
+        document.getElementById('searchCategories').oninput = _aplicarFiltroEstado;
         document.getElementById('addCategoryBtn').onclick = () => mostrarModal();
+    }
+
+    function _construirFiltroEstado() {
+        document.getElementById('categoryStatusFilterBar')?.remove();
+
+        const barra = document.createElement('div');
+        barra.id = 'categoryStatusFilterBar';
+        barra.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center;';
+
+        barra.innerHTML = '<button class="cat-filter-btn active" data-estado="activo"><i class="fas fa-check-circle"></i> Activas</button>';
+
+        const btnInactivas = document.createElement('button');
+        btnInactivas.className = 'cat-filter-btn';
+        btnInactivas.setAttribute('data-estado', 'inactivo');
+        btnInactivas.innerHTML = '<i class="fas fa-ban"></i> Deshabilitadas';
+        btnInactivas.style.cssText = 'border-color:var(--danger);';
+        barra.appendChild(btnInactivas);
+
+        barra.addEventListener('click', (e) => {
+            const btn = e.target.closest('.cat-filter-btn');
+            if (!btn) return;
+            barra.querySelectorAll('.cat-filter-btn').forEach(b => {
+                b.classList.remove('active');
+                b.style.background  = '';
+                b.style.color       = '';
+                b.style.borderColor = b.getAttribute('data-estado') === 'inactivo' ? 'var(--danger)' : '';
+            });
+            btn.classList.add('active');
+            if (btn.getAttribute('data-estado') === 'inactivo') {
+                btn.style.borderColor = 'var(--danger)';
+                btn.style.background  = 'rgba(244,63,94,0.15)';
+                btn.style.color       = 'var(--danger)';
+            }
+            _aplicarFiltroEstado();
+        });
+
+        const searchBox = document.querySelector('#categoriesSection .search-box');
+        searchBox.insertAdjacentElement('afterend', barra);
+    }
+
+    function _aplicarFiltroEstado() {
+        const q = document.getElementById('searchCategories').value.toLowerCase();
+        const activoBtn = document.querySelector('#categoryStatusFilterBar .cat-filter-btn.active');
+        const estado = activoBtn?.getAttribute('data-estado') || 'activo';
+
+        const filtradas = todasLasCategorias.filter(c => {
+            const matchTexto = c.nombre.toLowerCase().includes(q) || (c.descripcion || '').toLowerCase().includes(q);
+            const matchEstado = estado === 'inactivo' ? !c.activo : c.activo;
+            return matchTexto && matchEstado;
+        });
+
+        renderizarTabla(filtradas, conteoProductos);
     }
 
     function renderizarTabla(cats, conteo = {}) {
