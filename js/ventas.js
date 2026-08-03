@@ -3,11 +3,24 @@ const Ventas = (() => {
 
     let carrito = [];
     let usuarioActual = null;
+    let masVendidosIds = [];    // ids de producto a mostrar por defecto (más vendidos + relleno)
+    let masVendidosRealCount = 0; // cuántos de esos son realmente "más vendidos" (con ventas registradas)
+    let verCatalogoCompleto = false; // toggle para saltear el filtro por defecto
+
+    const CANTIDAD_DESTACADOS = 6;
 
     function setUsuario(usuario) { usuarioActual = usuario; }
 
-    function cargarPOS() {
+    async function cargarPOS() {
         _construirFiltrosCategorias();
+
+        const idsActivos = new Set(Productos.getLista().map(p => p.id));
+        const rankingCompleto = await _obtenerRankingVentas(); // todos, ordenados de más a menos vendidos
+        const topVendidos = rankingCompleto.filter(id => idsActivos.has(id)).slice(0, CANTIDAD_DESTACADOS);
+
+        masVendidosRealCount = topVendidos.length;
+        masVendidosIds = _completarConOtrosProductos(topVendidos, CANTIDAD_DESTACADOS);
+        verCatalogoCompleto = false;
         _renderizarGrilla();
         _actualizarCarrito();
 
@@ -22,6 +35,44 @@ const Ventas = (() => {
         };
         document.getElementById('discountInput').oninput = _actualizarCarrito;
         document.getElementById('checkoutBtn').onclick = mostrarModalCheckout;
+    }
+
+    // Si hay menos de "total" productos con ventas registradas, completa el
+    // resto con otros productos (alfabéticamente) para siempre mostrar "total".
+    function _completarConOtrosProductos(ids, total) {
+        if (ids.length >= total) return ids;
+        const yaIncluidos = new Set(ids);
+        const relleno = Productos.getLista()
+            .filter(p => !yaIncluidos.has(p.id))
+            .sort((a, b) => a.nombre.localeCompare(b.nombre))
+            .slice(0, total - ids.length)
+            .map(p => p.id);
+        return [...ids, ...relleno];
+    }
+
+    // Suma las cantidades vendidas por producto (venta_detalles) y devuelve
+    // TODOS los ids de producto, ordenados de más a menos vendido. Se filtra
+    // y se recorta recién en cargarPOS, así un producto deshabilitado dentro
+    // del top no deja un hueco: se lo salta y sube el siguiente activo.
+    async function _obtenerRankingVentas() {
+        if (!supabase) return [];
+        try {
+            const { data, error } = await supabase
+                .from('venta_detalles')
+                .select('producto_id, cantidad');
+            if (error) throw error;
+
+            const totales = {};
+            (data || []).forEach(d => {
+                totales[d.producto_id] = (totales[d.producto_id] || 0) + (d.cantidad || 0);
+            });
+
+            return Object.entries(totales)
+                .sort((a, b) => b[1] - a[1])
+                .map(([id]) => Number(id));
+        } catch {
+            return [];
+        }
     }
 
     function _categoriaActiva() {
@@ -54,20 +105,51 @@ const Ventas = (() => {
             if (!btn) return;
             barra.querySelectorAll('.cat-filter-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
+            verCatalogoCompleto = false;
             _renderizarGrilla(document.getElementById('productSearch').value, btn.getAttribute('data-cat'));
         });
     }
 
     function _renderizarGrilla(busqueda = '', categoriaId = '') {
         const grilla = document.getElementById('productGrid');
+        const info = document.getElementById('posGridInfo');
         grilla.innerHTML = '';
 
-        const filtrados = Productos.getLista().filter(p => {
+        let filtrados = Productos.getLista().filter(p => {
             const matchBusqueda = p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
                 (p.codigo && p.codigo.toLowerCase().includes(busqueda.toLowerCase()));
             const matchCat = !categoriaId || String(p.categoria_id) === String(categoriaId);
             return matchBusqueda && matchCat;
         });
+
+        // Vista por defecto ("Todos", sin búsqueda): solo los más vendidos,
+        // salvo que el usuario haya pedido ver el catálogo completo.
+        const esVistaPorDefecto = !busqueda && !categoriaId;
+        const aplicarTop = esVistaPorDefecto && !verCatalogoCompleto && masVendidosIds.length > 0;
+
+        if (aplicarTop) {
+            const porId = new Map(filtrados.map(p => [p.id, p]));
+            filtrados = masVendidosIds.map(id => porId.get(id)).filter(Boolean);
+        }
+
+        if (info) {
+            if (aplicarTop) {
+                const textoDestacados = masVendidosRealCount >= filtrados.length
+                    ? `Mostrando los <strong>${filtrados.length} más vendidos</strong>`
+                    : `Mostrando los <strong>${masVendidosRealCount} más vendidos</strong>${filtrados.length > masVendidosRealCount ? ` + ${filtrados.length - masVendidosRealCount} destacados` : ''}`;
+                info.innerHTML = `<span><i class="fas fa-fire"></i> ${textoDestacados}</span>
+                    <button type="button" id="verCatalogoCompletoBtn" class="btn-text">Ver catálogo completo</button>`;
+                const btn = document.getElementById('verCatalogoCompletoBtn');
+                if (btn) btn.onclick = () => { verCatalogoCompleto = true; _renderizarGrilla(busqueda, categoriaId); };
+            } else if (esVistaPorDefecto && verCatalogoCompleto) {
+                info.innerHTML = `<span>Mostrando el catálogo completo</span>
+                    <button type="button" id="verTopVendidosBtn" class="btn-text">Ver más vendidos</button>`;
+                const btn = document.getElementById('verTopVendidosBtn');
+                if (btn) btn.onclick = () => { verCatalogoCompleto = false; _renderizarGrilla(busqueda, categoriaId); };
+            } else {
+                info.innerHTML = '';
+            }
+        }
 
         if (filtrados.length === 0) {
             grilla.innerHTML = '<p style="text-align:center;padding:20px;color:var(--text-muted);">No se encontraron productos</p>';
@@ -319,50 +401,295 @@ const Ventas = (() => {
         }
     }
 
-    async function cargarHistorial() {
+    let periodoActual = 'dia';
+    let mesSeleccionado = null; // 1-12, para la pestaña "Mes"
+    let anioSeleccionado = null; // año correspondiente al mes elegido
+    let anioTabSeleccionado = null; // año elegido para la pestaña "Año" (independiente del anterior)
+
+    const pad2 = n => String(n).padStart(2, '0');
+
+    // Fecha de hoy en horario Argentina como {y,m,d}
+    function _hoyBA() {
+        const hoyStr = ahora().split('T')[0];
+        const [y, m, d] = hoyStr.split('-').map(Number);
+        return { y, m, d };
+    }
+
+    // Devuelve la fecha/hora local (America/Argentina/Buenos_Aires) como objeto {y,m,d}
+    function _fechaLocal(fechaStr) {
+        const partes = new Date(fechaStr).toLocaleString('sv-SE', { timeZone: 'America/Argentina/Buenos_Aires' });
+        const [fecha] = partes.split(' ');
+        const [y, m, d] = fecha.split('-').map(Number);
+        return { y, m, d, key: fecha };
+    }
+
+    // Calcula el rango { desde, hasta } (formato YYYY-MM-DD) según el período elegido.
+    // "hasta" es exclusivo; null significa "sin límite superior" (hasta ahora).
+    function _rangoPorPeriodo(periodo) {
+        const { y, m, d } = _hoyBA();
+
+        if (periodo === 'dia') {
+            return { desde: `${y}-${pad2(m)}-${pad2(d)}`, hasta: null };
+        }
+        if (periodo === 'semana') {
+            const hoy = new Date(Date.UTC(y, m - 1, d));
+            const diaSemana = hoy.getUTCDay(); // 0=domingo
+            const offset = diaSemana === 0 ? 6 : diaSemana - 1;
+            const lunes = new Date(hoy);
+            lunes.setUTCDate(hoy.getUTCDate() - offset);
+            return { desde: lunes.toISOString().split('T')[0], hasta: null };
+        }
+        if (periodo === 'mes') {
+            if (mesSeleccionado === null) { mesSeleccionado = m; anioSeleccionado = y; }
+            const desde = `${anioSeleccionado}-${pad2(mesSeleccionado)}-01`;
+            const esMesActual = anioSeleccionado === y && mesSeleccionado === m;
+            let hasta = null;
+            if (!esMesActual) {
+                const sigMes  = mesSeleccionado === 12 ? 1 : mesSeleccionado + 1;
+                const sigAnio = mesSeleccionado === 12 ? anioSeleccionado + 1 : anioSeleccionado;
+                hasta = `${sigAnio}-${pad2(sigMes)}-01`;
+            }
+            return { desde, hasta };
+        }
+        if (periodo === 'anio') {
+            if (anioTabSeleccionado === null) anioTabSeleccionado = y;
+            const desde = `${anioTabSeleccionado}-01-01`;
+            const esAnioActual = anioTabSeleccionado === y;
+            const hasta = esAnioActual ? null : `${anioTabSeleccionado + 1}-01-01`;
+            return { desde, hasta };
+        }
+        return { desde: null, hasta: null }; // histórico: sin límites
+    }
+
+    function _cambiarMes(delta) {
+        if (mesSeleccionado === null) { const h = _hoyBA(); mesSeleccionado = h.m; anioSeleccionado = h.y; }
+        mesSeleccionado += delta;
+        if (mesSeleccionado > 12) { mesSeleccionado = 1; anioSeleccionado++; }
+        if (mesSeleccionado < 1)  { mesSeleccionado = 12; anioSeleccionado--; }
+        cargarHistorial('mes');
+    }
+
+    function _cambiarAnio(delta) {
+        if (anioTabSeleccionado === null) anioTabSeleccionado = _hoyBA().y;
+        anioTabSeleccionado += delta;
+        cargarHistorial('anio');
+    }
+
+    const NOMBRES_DIA = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+    const NOMBRES_MES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+    function _tituloGrupoDia({ y, m, d }) {
+        const fechaObj = new Date(Date.UTC(y, m - 1, d));
+        const diaSemana = NOMBRES_DIA[fechaObj.getUTCDay()];
+        return `${diaSemana} ${d} de ${NOMBRES_MES[m - 1]} de ${y}`;
+    }
+
+    // Muestra/oculta y actualiza el navegador de mes (◀ Agosto 2026 ▶)
+    function _actualizarNavegadorMes() {
+        const nav = document.getElementById('salesMonthNav');
+        if (!nav) return;
+
+        if (periodoActual !== 'mes') {
+            nav.classList.add('hidden');
+            return;
+        }
+
+        if (mesSeleccionado === null) { const h = _hoyBA(); mesSeleccionado = h.m; anioSeleccionado = h.y; }
+        nav.classList.remove('hidden');
+
+        const nombreMes = NOMBRES_MES[mesSeleccionado - 1];
+        document.getElementById('salesMonthLabel').textContent =
+            `${nombreMes.charAt(0).toUpperCase()}${nombreMes.slice(1)} ${anioSeleccionado}`;
+
+        const h = _hoyBA();
+        const esMesActual = anioSeleccionado === h.y && mesSeleccionado === h.m;
+        document.getElementById('nextMonthBtn').disabled = esMesActual;
+    }
+
+    // Muestra/oculta y actualiza el navegador de año (◀ 2026 ▶)
+    function _actualizarNavegadorAnio() {
+        const nav = document.getElementById('salesYearNav');
+        if (!nav) return;
+
+        if (periodoActual !== 'anio') {
+            nav.classList.add('hidden');
+            return;
+        }
+
+        if (anioTabSeleccionado === null) anioTabSeleccionado = _hoyBA().y;
+        nav.classList.remove('hidden');
+
+        document.getElementById('salesYearLabel').textContent = String(anioTabSeleccionado);
+        document.getElementById('nextYearBtn').disabled = anioTabSeleccionado === _hoyBA().y;
+    }
+
+    async function cargarHistorial(periodo) {
         if (!supabase) return;
+        _inicializarTabsHistorial();
+        periodoActual = periodo || periodoActual || 'dia';
+
+        // Sincronizar estado visual de las tabs
+        document.querySelectorAll('#salesPeriodTabs .period-tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-period') === periodoActual);
+        });
+        _actualizarNavegadorMes();
+        _actualizarNavegadorAnio();
+
+        const contenedor = document.getElementById('salesHistoryGroups');
+        const resumen = document.getElementById('salesHistorySummary');
+        contenedor.innerHTML = '<p style="text-align:center;padding:20px;color:var(--text-muted);">Cargando...</p>';
+
         try {
-            const { data: ventas, error } = await supabase
+            const { desde, hasta } = _rangoPorPeriodo(periodoActual);
+            let query = supabase
                 .from('ventas')
                 .select('*, clientes (nombre), usuarios (nombre)')
-                .order('fecha', { ascending: false }).limit(50);
+                .order('fecha', { ascending: false });
+
+            if (desde) query = query.gte('fecha', desde);
+            if (hasta) query = query.lt('fecha', hasta);
+            query = query.limit(periodoActual === 'historico' ? 1000 : 500);
+
+            const { data: ventas, error } = await query;
             if (error) throw error;
 
-            const tbody = document.querySelector('#salesTable tbody');
-            tbody.innerHTML = '';
+            contenedor.innerHTML = '';
 
             if (!ventas || ventas.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No hay ventas</td></tr>';
+                resumen.innerHTML = '';
+                contenedor.innerHTML = '<p style="text-align:center;padding:20px;color:var(--text-muted);">No hay ventas en este período</p>';
                 return;
             }
 
+            // Resumen del período
+            const totalPeriodo = ventas.reduce((s, v) => s + (parseFloat(v.total) || 0), 0);
+            resumen.innerHTML = `
+                <span>${ventas.length} venta${ventas.length !== 1 ? 's' : ''} en este período — <strong>${formatearMoneda(totalPeriodo)}</strong></span>
+                <span class="sales-history-toggle-all">
+                    <button type="button" id="expandAllDaysBtn" class="btn-text"><i class="fas fa-angles-down"></i> Expandir todos</button>
+                    <button type="button" id="collapseAllDaysBtn" class="btn-text"><i class="fas fa-angles-up"></i> Colapsar todos</button>
+                </span>
+            `;
+
+            // Agrupar por día (clave YYYY-MM-DD en horario Argentina)
+            const grupos = new Map();
             ventas.forEach(v => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${v.codigo}</td>
-                    <td>${v.clientes?.nombre || 'Venta General'}</td>
-                    <td>${v.usuarios?.nombre || '-'}</td>
-                    <td>${formatearMoneda(v.total)}</td>
-                    <td><span class="status-badge status-info">${v.metodo_pago}</span></td>
-                    <td>${formatearFecha(v.fecha)}</td>
-                    <td>
-                        <div class="action-buttons">
-                            <button class="btn-action btn-view" title="Ver detalle" onclick="Ventas.verDetalle('${v.id}')">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </div>
-                    </td>
-                `;
-                tbody.appendChild(row);
+                const f = _fechaLocal(v.fecha);
+                if (!grupos.has(f.key)) grupos.set(f.key, { info: f, ventas: [] });
+                grupos.get(f.key).ventas.push(v);
             });
+
+            let index = 0;
+            grupos.forEach(({ info, ventas: ventasDia }, key) => {
+                const esElPrimero = index === 0;
+                index++;
+                const totalDia = ventasDia.reduce((s, v) => s + (parseFloat(v.total) || 0), 0);
+                const filas = ventasDia.map(v => `
+                    <tr>
+                        <td>${v.codigo}</td>
+                        <td>${v.clientes?.nombre || 'Venta General'}</td>
+                        <td>${v.usuarios?.nombre || '-'}</td>
+                        <td>${formatearMoneda(v.total)}</td>
+                        <td><span class="status-badge status-info">${v.metodo_pago}</span></td>
+                        <td>${formatearFecha(v.fecha)}</td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn-action btn-view" title="Ver detalle" onclick="Ventas.verDetalle('${v.id}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+
+                const grupoEl = document.createElement('div');
+                // Solo el día más reciente arranca expandido; el resto colapsado
+                // para que listas largas (semana/mes/año/histórico) sean navegables.
+                grupoEl.className = esElPrimero ? 'sales-day-group' : 'sales-day-group collapsed';
+                grupoEl.dataset.dayKey = key;
+                grupoEl.innerHTML = `
+                    <div class="sales-day-group-header">
+                        <div class="sales-day-group-title"><i class="fas fa-chevron-down"></i> ${_tituloGrupoDia(info)}</div>
+                        <div class="sales-day-group-meta">
+                            <span>${ventasDia.length} venta${ventasDia.length !== 1 ? 's' : ''}</span>
+                            <span>Total: <strong>${formatearMoneda(totalDia)}</strong></span>
+                        </div>
+                    </div>
+                    <div class="sales-day-group-body">
+                        <div class="table-responsive">
+                            <table>
+                                <thead><tr><th>Código</th><th>Cliente</th><th>Vendedor</th><th>Total</th><th>Método Pago</th><th>Fecha</th><th>Acciones</th></tr></thead>
+                                <tbody>${filas}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                grupoEl.querySelector('.sales-day-group-header').onclick = () => {
+                    grupoEl.classList.toggle('collapsed');
+                };
+                contenedor.appendChild(grupoEl);
+            });
+
+            document.getElementById('expandAllDaysBtn').onclick = () => {
+                contenedor.querySelectorAll('.sales-day-group').forEach(g => g.classList.remove('collapsed'));
+            };
+            document.getElementById('collapseAllDaysBtn').onclick = () => {
+                contenedor.querySelectorAll('.sales-day-group').forEach(g => g.classList.add('collapsed'));
+            };
 
             document.getElementById('searchSales').oninput = (e) => {
                 const q = e.target.value.toLowerCase();
-                tbody.querySelectorAll('tr').forEach(row => {
-                    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+                contenedor.querySelectorAll('.sales-day-group').forEach(grupoEl => {
+                    let algunaVisible = false;
+                    grupoEl.querySelectorAll('tbody tr').forEach(row => {
+                        const coincide = row.textContent.toLowerCase().includes(q);
+                        row.style.display = coincide ? '' : 'none';
+                        if (coincide) algunaVisible = true;
+                    });
+                    grupoEl.style.display = algunaVisible ? '' : 'none';
+                    // Si hay búsqueda activa, expandir los grupos con coincidencias
+                    // para que las filas encontradas sean visibles.
+                    if (q) grupoEl.classList.toggle('collapsed', !algunaVisible);
                 });
             };
-        } catch { console.error('Error al cargar ventas'); }
+        } catch (err) {
+            console.error(err);
+            contenedor.innerHTML = '<p style="text-align:center;padding:20px;color:var(--text-muted);">Error al cargar ventas</p>';
+        }
+    }
+
+    function _inicializarTabsHistorial() {
+        const barra = document.getElementById('salesPeriodTabs');
+        if (barra && !barra.dataset.init) {
+            barra.dataset.init = '1';
+            barra.addEventListener('click', (e) => {
+                const btn = e.target.closest('.period-tab-btn');
+                if (!btn) return;
+                cargarHistorial(btn.getAttribute('data-period'));
+            });
+        }
+
+        const prevBtn = document.getElementById('prevMonthBtn');
+        const nextBtn = document.getElementById('nextMonthBtn');
+        if (prevBtn && !prevBtn.dataset.init) {
+            prevBtn.dataset.init = '1';
+            prevBtn.onclick = () => _cambiarMes(-1);
+        }
+        if (nextBtn && !nextBtn.dataset.init) {
+            nextBtn.dataset.init = '1';
+            nextBtn.onclick = () => { if (!nextBtn.disabled) _cambiarMes(1); };
+        }
+
+        const prevYearBtn = document.getElementById('prevYearBtn');
+        const nextYearBtn = document.getElementById('nextYearBtn');
+        if (prevYearBtn && !prevYearBtn.dataset.init) {
+            prevYearBtn.dataset.init = '1';
+            prevYearBtn.onclick = () => _cambiarAnio(-1);
+        }
+        if (nextYearBtn && !nextYearBtn.dataset.init) {
+            nextYearBtn.dataset.init = '1';
+            nextYearBtn.onclick = () => { if (!nextYearBtn.disabled) _cambiarAnio(1); };
+        }
     }
 
     async function verDetalle(idVenta) {

@@ -4,52 +4,107 @@ const Empleados = (() => {
     let usuarioActual = null;
     function setUsuario(usuario) { usuarioActual = usuario; }
 
+    let todosEmpleados = [];
+
     async function cargarSeccion() {
         if (!supabase) return;
         try {
             const { data, error } = await supabase.from('usuarios').select('*').order('nombre');
             if (error) throw error;
+            todosEmpleados = data || [];
 
-            const tbody = document.querySelector('#employeesTable tbody');
-            tbody.innerHTML = '';
+            _construirFiltroEstado();
+            _aplicarFiltroEstado();
 
-            if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No hay empleados</td></tr>';
-                return;
-            }
-
-            data.forEach(emp => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${emp.username}</td>
-                    <td>${emp.nombre}</td>
-                    <td>${emp.email || '-'}</td>
-                    <td><span class="status-badge ${emp.role === 'admin' ? 'status-active' : 'status-info'}">${emp.role === 'admin' ? 'Administrador' : 'Empleado'}</span></td>
-                    <td><span class="status-badge ${emp.activo ? 'status-active' : 'status-inactive'}">${emp.activo ? 'Activo' : 'Inactivo'}</span></td>
-                    <td>
-                        <div class="action-buttons">
-                            <button class="btn-action btn-edit" title="Editar" onclick="Empleados.mostrarModal('${emp.id}')">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            ${emp.id !== usuarioActual?.id ? `
-                                <button class="btn-action ${emp.activo ? 'btn-toggle-off' : 'btn-toggle-on'}" title="${emp.activo ? 'Desactivar' : 'Activar'}" onclick="Empleados.cambiarEstado('${emp.id}',${!emp.activo})">
-                                    <i class="fas fa-${emp.activo ? 'ban' : 'check-circle'}"></i>
-                                </button>
-                            ` : ''}
-                        </div>
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-
-            document.getElementById('searchEmployees').oninput = (e) => {
-                const q = e.target.value.toLowerCase();
-                tbody.querySelectorAll('tr').forEach(row => {
-                    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
-                });
-            };
+            document.getElementById('searchEmployees').oninput = _aplicarFiltroEstado;
             document.getElementById('addEmployeeBtn').onclick = () => mostrarModal();
         } catch { console.error('Error al cargar empleados'); }
+    }
+
+    function _construirFiltroEstado() {
+        document.getElementById('employeeStatusFilterBar')?.remove();
+
+        const barra = document.createElement('div');
+        barra.id = 'employeeStatusFilterBar';
+        barra.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center;';
+
+        barra.innerHTML = '<button class="cat-filter-btn active" data-estado="activo"><i class="fas fa-user-check"></i> Activos</button>';
+
+        const btnInactivos = document.createElement('button');
+        btnInactivos.className = 'cat-filter-btn';
+        btnInactivos.setAttribute('data-estado', 'inactivo');
+        btnInactivos.innerHTML = '<i class="fas fa-ban"></i> Deshabilitados';
+        btnInactivos.style.cssText = 'border-color:var(--danger);';
+        barra.appendChild(btnInactivos);
+
+        barra.addEventListener('click', (e) => {
+            const btn = e.target.closest('.cat-filter-btn');
+            if (!btn) return;
+            barra.querySelectorAll('.cat-filter-btn').forEach(b => {
+                b.classList.remove('active');
+                b.style.background   = '';
+                b.style.color        = '';
+                b.style.borderColor  = b.getAttribute('data-estado') === 'inactivo' ? 'var(--danger)' : '';
+            });
+            btn.classList.add('active');
+            if (btn.getAttribute('data-estado') === 'inactivo') {
+                btn.style.borderColor = 'var(--danger)';
+                btn.style.background  = 'rgba(244,63,94,0.15)';
+                btn.style.color       = 'var(--danger)';
+            }
+            _aplicarFiltroEstado();
+        });
+
+        const searchBox = document.querySelector('#employeesSection .search-box');
+        searchBox.insertAdjacentElement('afterend', barra);
+    }
+
+    function _aplicarFiltroEstado() {
+        const q = document.getElementById('searchEmployees').value.toLowerCase();
+        const activoBtn = document.querySelector('#employeeStatusFilterBar .cat-filter-btn.active');
+        const estado = activoBtn?.getAttribute('data-estado') || 'activo';
+
+        const filtrados = todosEmpleados.filter(emp => {
+            const matchTexto = emp.username.toLowerCase().includes(q) ||
+                emp.nombre.toLowerCase().includes(q) ||
+                (emp.email || '').toLowerCase().includes(q);
+            const matchEstado = estado === 'inactivo' ? !emp.activo : emp.activo;
+            return matchTexto && matchEstado;
+        });
+
+        renderizarTablaEmpleados(filtrados);
+    }
+
+    function renderizarTablaEmpleados(empleados) {
+        const tbody = document.querySelector('#employeesTable tbody');
+        tbody.innerHTML = '';
+
+        if (empleados.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No hay empleados</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = empleados.map(emp => `
+            <tr>
+                <td>${emp.username}</td>
+                <td>${emp.nombre}</td>
+                <td>${emp.email || '-'}</td>
+                <td><span class="status-badge ${emp.role === 'admin' ? 'status-active' : 'status-info'}">${emp.role === 'admin' ? 'Administrador' : 'Empleado'}</span></td>
+                <td><span class="status-badge ${emp.activo ? 'status-active' : 'status-inactive'}">${emp.activo ? 'Activo' : 'Inactivo'}</span></td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn-action btn-edit" title="Editar" onclick="Empleados.mostrarModal('${emp.id}')">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        ${emp.id !== usuarioActual?.id ? `
+                            <button class="btn-action ${emp.activo ? 'btn-toggle-off' : 'btn-toggle-on'}" title="${emp.activo ? 'Desactivar' : 'Activar'}" onclick="Empleados.cambiarEstado('${emp.id}',${!emp.activo})">
+                                <i class="fas fa-${emp.activo ? 'ban' : 'check-circle'}"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                </td>
+            </tr>
+        `).join('');
     }
 
     function mostrarModal(id = null) {

@@ -296,6 +296,7 @@
                         <div id="categoryFilterBar" class="category-filter-bar">
                             <button class="cat-filter-btn active" data-cat=""><i class="fas fa-th"></i> Todos</button>
                         </div>
+                        <div id="posGridInfo" class="pos-grid-info"></div>
                         <div id="productGrid" class="product-grid"></div>
                     </div>
                     <div class="pos-cart">
@@ -422,16 +423,29 @@
                 </div>
                 <div class="card">
                     <div class="card-body">
+                        <div class="sales-period-tabs" id="salesPeriodTabs">
+                            <button class="period-tab-btn active" data-period="dia"><i class="fas fa-calendar-day"></i> Día</button>
+                            <button class="period-tab-btn" data-period="semana"><i class="fas fa-calendar-week"></i> Semana</button>
+                            <button class="period-tab-btn" data-period="mes"><i class="fas fa-calendar-alt"></i> Mes</button>
+                            <button class="period-tab-btn" data-period="anio"><i class="fas fa-calendar"></i> Año</button>
+                            <button class="period-tab-btn" data-period="historico"><i class="fas fa-infinity"></i> Histórico</button>
+                        </div>
+                        <div class="sales-month-nav hidden" id="salesMonthNav">
+                            <button type="button" id="prevMonthBtn" class="month-nav-btn" title="Mes anterior"><i class="fas fa-chevron-left"></i></button>
+                            <span id="salesMonthLabel" class="month-nav-label">Mes</span>
+                            <button type="button" id="nextMonthBtn" class="month-nav-btn" title="Mes siguiente"><i class="fas fa-chevron-right"></i></button>
+                        </div>
+                        <div class="sales-month-nav hidden" id="salesYearNav">
+                            <button type="button" id="prevYearBtn" class="month-nav-btn" title="Año anterior"><i class="fas fa-chevron-left"></i></button>
+                            <span id="salesYearLabel" class="month-nav-label">Año</span>
+                            <button type="button" id="nextYearBtn" class="month-nav-btn" title="Año siguiente"><i class="fas fa-chevron-right"></i></button>
+                        </div>
                         <div class="search-box">
                             <i class="fas fa-search"></i>
                             <input type="text" id="searchSales" placeholder="Buscar ventas...">
                         </div>
-                        <div class="table-responsive">
-                            <table id="salesTable">
-                                <thead><tr><th>Código</th><th>Cliente</th><th>Vendedor</th><th>Total</th><th>Método Pago</th><th>Fecha</th><th>Acciones</th></tr></thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
+                        <div id="salesHistorySummary" class="sales-history-summary"></div>
+                        <div id="salesHistoryGroups" class="sales-history-groups"></div>
                     </div>
                 </div>
             </section>
