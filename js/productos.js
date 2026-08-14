@@ -30,6 +30,11 @@ const Productos = (() => {
     }
 
     let todosProductos = [];
+    let masVendidosIds = [];      // ids de producto a destacar en "Todos" (más vendidos + relleno)
+    let masVendidosRealCount = 0; // cuántos de esos tienen ventas registradas realmente
+    let verCatalogoCompleto = false;
+
+    const CANTIDAD_DESTACADOS = 6;
 
     async function cargarSeccion(cats) {
         categorias = cats;
@@ -38,11 +43,46 @@ const Productos = (() => {
         // Ordenar por stock ascendente (menos stock primero)
         todosProductos.sort((a, b) => a.stock - b.stock);
 
+        const idsActivos = new Set(todosProductos.filter(p => p.activo).map(p => p.id));
+        const rankingCompleto = await _obtenerRankingVentas();
+        const topVendidos = rankingCompleto.filter(id => idsActivos.has(id)).slice(0, CANTIDAD_DESTACADOS);
+        masVendidosRealCount = topVendidos.length;
+        masVendidosIds = _completarConOtrosProductos(topVendidos, CANTIDAD_DESTACADOS);
+        verCatalogoCompleto = false;
+
         _construirFiltrosCategorias();
         _aplicarFiltros();
 
         document.getElementById('searchProducts').oninput = _aplicarFiltros;
         document.getElementById('addProductBtn').onclick = () => mostrarModal();
+    }
+
+    // Suma las cantidades vendidas por producto (venta_detalles) y devuelve
+    // TODOS los ids de producto, ordenados de más a menos vendido.
+    async function _obtenerRankingVentas() {
+        if (!supabase) return [];
+        try {
+            const { data, error } = await supabase.from('venta_detalles').select('producto_id, cantidad');
+            if (error) throw error;
+            const totales = {};
+            (data || []).forEach(d => {
+                totales[d.producto_id] = (totales[d.producto_id] || 0) + (d.cantidad || 0);
+            });
+            return Object.entries(totales).sort((a, b) => b[1] - a[1]).map(([id]) => Number(id));
+        } catch { return []; }
+    }
+
+    // Si hay menos de "total" productos activos con ventas registradas,
+    // completa el resto con otros productos activos (alfabéticamente).
+    function _completarConOtrosProductos(ids, total) {
+        if (ids.length >= total) return ids;
+        const yaIncluidos = new Set(ids);
+        const relleno = todosProductos
+            .filter(p => p.activo && !yaIncluidos.has(p.id))
+            .sort((a, b) => a.nombre.localeCompare(b.nombre))
+            .slice(0, total - ids.length)
+            .map(p => p.id);
+        return [...ids, ...relleno];
     }
 
     function _construirFiltrosCategorias() {
@@ -90,6 +130,7 @@ const Productos = (() => {
                 btn.style.background  = 'rgba(244,63,94,0.15)';
                 btn.style.color       = 'var(--danger)';
             }
+            verCatalogoCompleto = false;
             _aplicarFiltros();
         });
 
@@ -103,7 +144,7 @@ const Productos = (() => {
         const catId   = activo?.getAttribute('data-cat')   || '';
         const estado  = activo?.getAttribute('data-estado') || '';
 
-        const filtrados = todosProductos.filter(p => {
+        let filtrados = todosProductos.filter(p => {
             const matchTexto  = p.nombre.toLowerCase().includes(q) ||
                                 (p.codigo || '').toLowerCase().includes(q) ||
                                 (p.categorias?.nombre || '').toLowerCase().includes(q);
@@ -111,6 +152,36 @@ const Productos = (() => {
             const matchEstado = estado === 'inactivo' ? !p.activo : p.activo;
             return matchTexto && matchCat && matchEstado;
         });
+
+        // Vista por defecto ("Todos", sin búsqueda, sin filtro de inactivos):
+        // solo los más vendidos, salvo que se pida ver el catálogo completo.
+        const esVistaPorDefecto = !q && !catId && estado !== 'inactivo';
+        const aplicarTop = esVistaPorDefecto && !verCatalogoCompleto && masVendidosIds.length > 0;
+
+        if (aplicarTop) {
+            const porId = new Map(filtrados.map(p => [p.id, p]));
+            filtrados = masVendidosIds.map(id => porId.get(id)).filter(Boolean);
+        }
+
+        const info = document.getElementById('productsListInfo');
+        if (info) {
+            if (aplicarTop) {
+                const texto = masVendidosRealCount >= filtrados.length
+                    ? `Mostrando los <strong>${filtrados.length} más vendidos</strong>`
+                    : `Mostrando los <strong>${masVendidosRealCount} más vendidos</strong>${filtrados.length > masVendidosRealCount ? ` + ${filtrados.length - masVendidosRealCount} destacados` : ''}`;
+                info.innerHTML = `<span><i class="fas fa-fire"></i> ${texto}</span>
+                    <button type="button" id="verCatalogoCompletoProdBtn" class="btn-text">Ver catálogo completo</button>`;
+                const btn = document.getElementById('verCatalogoCompletoProdBtn');
+                if (btn) btn.onclick = () => { verCatalogoCompleto = true; _aplicarFiltros(); };
+            } else if (esVistaPorDefecto && verCatalogoCompleto) {
+                info.innerHTML = `<span>Mostrando el catálogo completo</span>
+                    <button type="button" id="verTopVendidosProdBtn" class="btn-text">Ver más vendidos</button>`;
+                const btn = document.getElementById('verTopVendidosProdBtn');
+                if (btn) btn.onclick = () => { verCatalogoCompleto = false; _aplicarFiltros(); };
+            } else {
+                info.innerHTML = '';
+            }
+        }
 
         renderizarTabla(filtrados);
     }
